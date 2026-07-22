@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 // 결과는 테두리 없는 투명 PNG(cutout)로 반환됨.
 
 const MAX_DIM = 1200; // 편집 캔버스 최대 해상도
+const EDITOR_HELP_KEY = "mycloset_editor_help_v1";
 
 const TANGERINE = "#FF6A3D";
 const INK = "#2A1206";
@@ -45,6 +46,23 @@ export default function ImageEditor({
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // 초보자용 도움말 — 처음 열 때 한 번 자동으로 보여주고 이후엔 ? 로 다시 열기
+  const [showHelp, setShowHelp] = useState(() => {
+    try {
+      return localStorage.getItem(EDITOR_HELP_KEY) !== "1";
+    } catch {
+      return false;
+    }
+  });
+
+  function dismissHelp() {
+    try {
+      localStorage.setItem(EDITOR_HELP_KEY, "1");
+    } catch {
+      // 저장 실패해도 무시
+    }
+    setShowHelp(false);
+  }
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -251,14 +269,57 @@ export default function ImageEditor({
           <h2 className="text-xl font-bold" style={{ color: INK }}>
             {title}
           </h2>
-          <button
-            onClick={onCancel}
-            className="flex h-8 w-8 items-center justify-center rounded-full border"
-            style={{ borderColor: LINE, color: MUTED }}
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowHelp(true)}
+              aria-label="도움말"
+              className="flex h-8 items-center justify-center rounded-full border px-3 text-xs font-bold"
+              style={{ borderColor: LINE, color: MUTED }}
+            >
+              도움말
+            </button>
+            <button
+              onClick={onCancel}
+              className="flex h-8 w-8 items-center justify-center rounded-full border"
+              style={{ borderColor: LINE, color: MUTED }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
+
+        {showHelp && !loadError && (
+          <div
+            className="mb-3 rounded-2xl border-2 p-4"
+            style={{ borderColor: INK, background: "#FFF6F0" }}
+          >
+            <p className="mb-2.5 text-sm font-bold" style={{ color: INK }}>
+              이렇게 쓰면 돼요 👇
+            </p>
+            <ul className="space-y-2 text-[13px] leading-snug" style={{ color: INK }}>
+              <li>
+                🧽 <b>지우개</b> — 배경이 덜 지워진 곳을 손가락으로 문질러 지워요
+              </li>
+              <li>
+                ↩️ <b>복원</b> — 옷이 실수로 지워졌을 때 문질러 되살려요
+              </li>
+              <li>
+                ✂️ <b>크롭</b> — 네 모서리(주황 손잡이)를 끌어 남길 부분만 정해요
+              </li>
+            </ul>
+            <p className="mt-2.5 text-xs" style={{ color: MUTED }}>
+              다 만지기 어려우면 그냥{" "}
+              <b style={{ color: INK }}>편집 완료</b>를 눌러도 돼요 :)
+            </p>
+            <button
+              onClick={dismissHelp}
+              className="font-kr mt-3 w-full rounded-xl border-2 py-2.5 text-sm font-bold text-white"
+              style={{ background: TANGERINE, borderColor: INK }}
+            >
+              알겠어요
+            </button>
+          </div>
+        )}
 
         {loadError ? (
           <p
@@ -274,8 +335,10 @@ export default function ImageEditor({
               style={{ color: MUTED }}
             >
               {mode === "crop"
-                ? "✂️ 모서리를 끌어 자를 영역을 정하세요"
-                : "🧽 잔여 배경 지우기 · ↩️ 잘린 부분 복원"}
+                ? "✂️ 네 모서리(주황 손잡이)를 끌어 남길 부분을 정해요"
+                : mode === "erase"
+                  ? "🧽 배경이 덜 지워진 곳을 손가락으로 문질러 지워요"
+                  : "↩️ 옷이 잘못 지워진 곳을 문질러 되살려요"}
             </p>
             {/* 체커보드 배경 위 캔버스 */}
             <div
