@@ -1,19 +1,40 @@
+import { useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
+import Closet from "@/components/Closet";
+import Login from "@/components/Login";
+
 export default function App() {
-  return (
-    <main
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 12,
-        height: "100dvh",
-        padding: 24,
-        textAlign: "center",
-      }}
-    >
-      <h1 style={{ color: "#FF6A3D", margin: 0 }}>나만의 옷장</h1>
-      <p style={{ color: "#B0846A", margin: 0 }}>앱인토스 웹뷰 스켈레톤 동작 확인 ✅</p>
-    </main>
-  );
+  const [session, setSession] = useState<Session | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setReady(true);
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!ready) {
+    return (
+      <main
+        style={{
+          display: "flex",
+          height: "100dvh",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#B0846A",
+        }}
+      >
+        불러오는 중…
+      </main>
+    );
+  }
+
+  return session ? <Closet /> : <Login />;
 }

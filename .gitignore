@@ -35,6 +35,10 @@ apps-in-toss/.granite/
 # supabase local temp
 supabase/.temp/
 
+# playwright / local smoke-test artifacts
+.playwright-mcp/
+toss-login.png
+
 # debug
 npm-debug.log*
 yarn-debug.log*
