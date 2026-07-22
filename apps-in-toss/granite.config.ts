@@ -5,7 +5,7 @@ import { defineConfig } from "@apps-in-toss/web-framework/config";
 export default defineConfig({
   appName: "my-closet",
   brand: {
-    displayName: "나만의 옷장",
+    displayName: "마이클로젯",
     primaryColor: "#FF6A3D", // 앱 테마(탠저린)
     icon: "", // 콘솔에 업로드한 아이콘 URL
   },
