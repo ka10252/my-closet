@@ -3,6 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import Closet from "@/components/Closet";
 import Login from "@/components/Login";
+import SetPassword from "@/components/SetPassword";
 import Onboarding, { ONBOARD_KEY } from "@/components/Onboarding";
 
 function isOnboarded() {
@@ -17,6 +18,7 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [onboarded, setOnboarded] = useState(isOnboarded);
+  const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -26,7 +28,11 @@ export default function App() {
     });
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    } = supabase.auth.onAuthStateChange((event, s) => {
+      // 비밀번호 설정 링크로 들어오면 새 비밀번호 화면을 띄움
+      if (event === "PASSWORD_RECOVERY") setRecovering(true);
+      setSession(s);
+    });
     return () => subscription.unsubscribe();
   }, []);
 
@@ -45,6 +51,9 @@ export default function App() {
       </main>
     );
   }
+
+  if (recovering)
+    return <SetPassword onDone={() => setRecovering(false)} />;
 
   if (!session) return <Login />;
 

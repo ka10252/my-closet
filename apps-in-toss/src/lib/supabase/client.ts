@@ -20,7 +20,8 @@ export function createClient(): SupabaseClient {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: false,
+      // 비밀번호 설정(재설정) 링크로 돌아올 때 URL 토큰을 감지해야 함
+      detectSessionInUrl: true,
     },
   });
   return client;

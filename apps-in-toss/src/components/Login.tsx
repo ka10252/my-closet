@@ -64,6 +64,28 @@ export default function Login() {
     }
   }
 
+  async function sendReset() {
+    const addr = email.trim();
+    if (!addr) {
+      setError("이메일 주소를 먼저 입력해 주세요.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setNotice("");
+    const { error } = await createClient().auth.resetPasswordForEmail(addr, {
+      redirectTo: window.location.origin,
+    });
+    setLoading(false);
+    if (error) {
+      setError("메일 전송에 실패했어요. 이메일 주소를 확인해 주세요.");
+      return;
+    }
+    setNotice(
+      "비밀번호 설정 메일을 보냈어요. 메일의 링크를 눌러 새 비밀번호를 정한 뒤 로그인해 주세요.",
+    );
+  }
+
   const isSignup = mode === "signup";
 
   return (
@@ -138,20 +160,33 @@ export default function Login() {
               ? "회원가입"
               : "로그인"}
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            setMode(isSignup ? "signin" : "signup");
-            setError("");
-            setNotice("");
-          }}
-          className="text-xs underline"
-          style={{ color: "#FFE3D6" }}
-        >
-          {isSignup
-            ? "이미 계정이 있으신가요? 로그인"
-            : "처음이신가요? 회원가입"}
-        </button>
+        <div className="flex flex-col items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              setMode(isSignup ? "signin" : "signup");
+              setError("");
+              setNotice("");
+            }}
+            className="text-xs underline"
+            style={{ color: "#FFE3D6" }}
+          >
+            {isSignup
+              ? "이미 계정이 있으신가요? 로그인"
+              : "처음이신가요? 회원가입"}
+          </button>
+          {!isSignup && (
+            <button
+              type="button"
+              onClick={sendReset}
+              disabled={loading}
+              className="text-[11px] underline"
+              style={{ color: "#FFD8C6" }}
+            >
+              비밀번호를 잊으셨거나 처음이신가요? 비밀번호 설정
+            </button>
+          )}
+        </div>
       </form>
     </main>
   );
