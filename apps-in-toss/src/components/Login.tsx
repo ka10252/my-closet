@@ -57,7 +57,9 @@ export default function Login() {
         return;
       }
       // 이메일 확인이 켜져 있는 경우
-      setNotice("가입 확인 메일을 보냈어요. 확인 후 로그인해 주세요.");
+      setNotice(
+        "가입 확인 메일을 보냈어요. 메일함에서 확인 링크를 누른 뒤, 이 화면에서 로그인해 주세요.",
+      );
       setMode("signin");
     }
   }
