@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #2a1206;
+
+  /* 탠저린 팝 테마 토큰 */
+  --tangerine: #ff6a3d;
+  --tangerine-deep: #c63f1e;
+  --ink: #2a1206;
+  --muted: #b0846a;
+  --line: #f3c9b4;
+  --surface: #fff6f0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-tangerine: var(--tangerine);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-surface: var(--surface);
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  /* 라틴은 Space Grotesk, 한글은 Do Hyeon 으로 폴백 */
+  font-family: "Space Grotesk", "Do Hyeon", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 로고 / 버튼용 디스플레이 폰트 (한글은 Do Hyeon 폴백) */
+.font-display {
+  font-family: "Bungee", "Do Hyeon", sans-serif;
+}
+/* 한글 우선 */
+.font-kr {
+  font-family: "Do Hyeon", "Space Grotesk", sans-serif;
+}
+
+/* 누끼 스티커 다이컷(흰 테두리) + 드롭섀도우 */
+.cutout {
+  filter: drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff)
+    drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff)
+    drop-shadow(3px 6px 4px rgba(80, 30, 10, 0.28));
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+@keyframes sway {
+  0%,
+  100% {
+    transform: rotate(-2.5deg);
+  }
+  50% {
+    transform: rotate(2.5deg);
+  }
+}
+
+/* 전체 뷰: 스티커가 무작위로 떠다니며 살짝 굴러다니는 느낌 */
+@keyframes float {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(var(--rot, 0deg));
+  }
+  33% {
+    transform: translate(var(--dx, 4px), calc(var(--dy, -8px)))
+      rotate(calc(var(--rot, 0deg) + 3deg));
+  }
+  66% {
+    transform: translate(calc(var(--dx, 4px) * -1), calc(var(--dy, -8px) * 0.4))
+      rotate(calc(var(--rot, 0deg) - 3deg));
+  }
+}
