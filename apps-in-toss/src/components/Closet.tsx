@@ -321,6 +321,13 @@ export default function Closet() {
     }
   }
 
+  // 추가 화면에서 세부 카테고리 즉석 생성 (생성된 항목을 돌려줌)
+  async function handleAddSubcategoryReturning(parent: string, label: string) {
+    const sub = await addSubcategory(parent, label);
+    setSubcats((prev) => [...prev, sub]);
+    return sub;
+  }
+
   async function handleRenameCategory(cat: EffectiveCategory, label: string) {
     const v = label.trim();
     if (!v || cat.builtin || v === cat.label) return;
@@ -737,6 +744,8 @@ export default function Closet() {
       {addOpen && (
         <AddSheet
           categories={categories}
+          subcats={subcats}
+          onAddSubcategory={handleAddSubcategoryReturning}
           onClose={closeTop}
           onAddedMany={(newItems) => {
             setItems((prev) => [...newItems, ...prev]);

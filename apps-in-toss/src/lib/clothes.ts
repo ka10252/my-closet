@@ -17,6 +17,7 @@ export interface NewClothing {
   sticker: Blob; // 흰 테두리 스티커 PNG (표시용)
   cutout: Blob; // 테두리 없는 컷아웃 (편집 원본)
   category: string;
+  subcategory?: string | null;
   name?: string;
 }
 
@@ -51,6 +52,7 @@ export async function addClothing(input: NewClothing): Promise<Clothing> {
     .insert({
       user_id: user.id,
       category: input.category,
+      subcategory: input.subcategory ?? null,
       name: input.name?.trim() || null,
       image_url: url,
       cutout_url: url,

@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { addClothing } from "@/lib/clothes";
-import type { Clothing, EffectiveCategory } from "@/lib/categories";
+import type {
+  Clothing,
+  EffectiveCategory,
+  Subcategory,
+} from "@/lib/categories";
 
 const TANGERINE = "#FF6A3D";
 const INK = "#2A1206";
@@ -18,16 +22,21 @@ interface Entry {
   url: string;
   name: string;
   category: string;
+  subcategory: string | null;
 }
 
 export default function AddSheet({
   categories,
+  subcats,
   onClose,
   onAddedMany,
+  onAddSubcategory,
 }: {
   categories: EffectiveCategory[];
+  subcats: Subcategory[];
   onClose: () => void;
   onAddedMany: (items: Clothing[]) => void;
+  onAddSubcategory: (parent: string, label: string) => Promise<Subcategory>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>("pick");
@@ -70,6 +79,7 @@ export default function AddSheet({
           url: URL.createObjectURL(cutout),
           name: "",
           category: defaultCat,
+          subcategory: null,
         });
       }
       setEntries((prev) => [...prev, ...made]);
@@ -103,6 +113,7 @@ export default function AddSheet({
             sticker: en.sticker,
             cutout: en.cutout,
             category: en.category,
+            subcategory: en.subcategory,
             name: en.name,
           }),
         ),
@@ -204,23 +215,35 @@ export default function AddSheet({
                     className="cutout max-h-[80%] max-w-[80%] object-contain"
                   />
                 </div>
-                <div className="flex flex-1 flex-col justify-center gap-2">
-                  <input
-                    value={en.name}
-                    onChange={(e) =>
-                      updateEntry(en.id, { name: e.target.value })
-                    }
-                    placeholder="이름 (선택)"
-                    className="w-full rounded-lg border-2 bg-white px-2.5 py-1.5 text-sm outline-none"
-                    style={{ borderColor: LINE, color: INK }}
-                  />
+                <div className="flex flex-1 flex-col justify-center gap-1.5">
                   <div className="flex items-center gap-2">
+                    <input
+                      value={en.name}
+                      onChange={(e) =>
+                        updateEntry(en.id, { name: e.target.value })
+                      }
+                      placeholder="이름 (선택)"
+                      className="min-w-0 flex-1 rounded-lg border-2 bg-white px-2.5 py-1.5 text-sm outline-none"
+                      style={{ borderColor: LINE, color: INK }}
+                    />
+                    <button
+                      onClick={() => removeEntry(en.id)}
+                      className="shrink-0 rounded-lg px-1.5 py-1.5 text-xs font-bold"
+                      style={{ color: "#C63F1E" }}
+                    >
+                      제거
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5">
                     <select
                       value={en.category}
                       onChange={(e) =>
-                        updateEntry(en.id, { category: e.target.value })
+                        updateEntry(en.id, {
+                          category: e.target.value,
+                          subcategory: null, // 카테고리 바뀌면 세부 초기화
+                        })
                       }
-                      className="flex-1 rounded-lg border-2 bg-white px-2 py-1.5 text-sm outline-none"
+                      className="min-w-0 flex-1 rounded-lg border-2 bg-white px-2 py-1.5 text-sm outline-none"
                       style={{ borderColor: LINE, color: INK }}
                     >
                       {categories.map((c) => (
@@ -229,13 +252,15 @@ export default function AddSheet({
                         </option>
                       ))}
                     </select>
-                    <button
-                      onClick={() => removeEntry(en.id)}
-                      className="rounded-lg px-2 py-1.5 text-xs font-bold"
-                      style={{ color: "#C63F1E" }}
-                    >
-                      제거
-                    </button>
+                    <SubPicker
+                      categoryId={en.category}
+                      value={en.subcategory}
+                      subs={subcats}
+                      onSelect={(subId) =>
+                        updateEntry(en.id, { subcategory: subId })
+                      }
+                      onCreate={onAddSubcategory}
+                    />
                   </div>
                 </div>
               </div>
@@ -276,5 +301,69 @@ export default function AddSheet({
         )}
       </div>
     </div>
+  );
+}
+
+// 옷 한 벌의 세부 카테고리 선택 + 즉석 생성
+function SubPicker({
+  categoryId,
+  value,
+  subs,
+  onSelect,
+  onCreate,
+}: {
+  categoryId: string;
+  value: string | null;
+  subs: Subcategory[];
+  onSelect: (subId: string | null) => void;
+  onCreate: (parent: string, label: string) => Promise<Subcategory>;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [val, setVal] = useState("");
+  const mine = subs.filter((s) => s.parent === categoryId);
+
+  if (adding) {
+    return (
+      <input
+        autoFocus
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={async () => {
+          const label = val.trim();
+          setVal("");
+          setAdding(false);
+          if (!label) return;
+          try {
+            const sub = await onCreate(categoryId, label);
+            onSelect(sub.id);
+          } catch {
+            // 생성 실패 시 무시
+          }
+        }}
+        placeholder="예: 반팔"
+        className="min-w-0 flex-1 rounded-lg border-2 bg-white px-2 py-1.5 text-sm outline-none"
+        style={{ borderColor: INK, color: INK }}
+      />
+    );
+  }
+
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(e) => {
+        if (e.target.value === "__add__") setAdding(true);
+        else onSelect(e.target.value || null);
+      }}
+      className="min-w-0 flex-1 rounded-lg border-2 bg-white px-2 py-1.5 text-sm outline-none"
+      style={{ borderColor: LINE, color: value ? INK : MUTED }}
+    >
+      <option value="">세부 없음</option>
+      {mine.map((s) => (
+        <option key={s.id} value={s.id}>
+          {s.label}
+        </option>
+      ))}
+      <option value="__add__">＋ 새 세부…</option>
+    </select>
   );
 }
