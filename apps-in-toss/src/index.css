@@ -1,0 +1,16 @@
+:root {
+  font-family: system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
+  color: #2a1206;
+  background: #fff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}

@@ -29,6 +29,7 @@ Icon?
 # apps-in-toss (Vite) build output & deps
 apps-in-toss/node_modules
 apps-in-toss/dist/
+apps-in-toss/.granite/
 *.ait
 
 # supabase local temp
