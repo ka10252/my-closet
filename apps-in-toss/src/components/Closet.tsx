@@ -457,6 +457,7 @@ export default function Closet() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            data-tour="coordi"
             onClick={() => {
               openSheet(() => setCoordiOpen(false));
               setCoordiOpen(true);
@@ -467,6 +468,7 @@ export default function Closet() {
             🎽 코디
           </button>
           <button
+            data-tour="packing"
             onClick={() => setPacking((v) => !v)}
             className="rounded-full border-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition active:scale-95"
             style={
@@ -517,7 +519,10 @@ export default function Closet() {
       )}
 
       {/* 카테고리 필터 */}
-      <nav className="no-scrollbar flex shrink-0 gap-2 overflow-x-auto px-6 pb-4">
+      <nav
+        data-tour="shelves"
+        className="no-scrollbar flex shrink-0 gap-2 overflow-x-auto px-6 pb-4"
+      >
         <Chip active={filter === "all"} onClick={() => setFilter("all")}>
           전체 {items.length}
         </Chip>
@@ -721,6 +726,7 @@ export default function Closet() {
       {/* 옷 담기 버튼 */}
       {!packing && (
         <button
+          data-tour="add"
           onClick={() => {
             openSheet(() => setAddOpen(false));
             setAddOpen(true);
