@@ -355,7 +355,7 @@ function CatPicker({
           {c.emoji} {c.label}
         </option>
       ))}
-      <option value="__add__">＋ 새 선반…</option>
+      <option value="__add__">＋ 새 카테고리…</option>
     </select>
   );
 }

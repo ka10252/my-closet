@@ -147,14 +147,43 @@ export default function Closet({
   );
 
   useEffect(() => {
-    Promise.all([fetchClothes(), fetchCustomCategories(), fetchSubcategories()])
-      .then(([cl, cats, subs]) => {
-        setItems(cl);
-        setCustom(cats);
-        setSubcats(subs);
-      })
+    let cancelled = false;
+    const supabase = createClient();
+
+    async function loadAll() {
+      // 로그인 직후엔 세션 토큰이 아직 전파되지 않아 빈 목록이 올 수 있어서,
+      // 세션이 확실히 준비된 뒤 불러온다 (그래야 새로고침 없이 바로 뜸)
+      await supabase.auth.getSession();
+      const [cl, cats, subs] = await Promise.all([
+        fetchClothes(),
+        fetchCustomCategories(),
+        fetchSubcategories(),
+      ]);
+      if (cancelled) return;
+      setItems(cl);
+      setCustom(cats);
+      setSubcats(subs);
+    }
+
+    loadAll()
       .catch((e) => console.error(e))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    // 만약 최초 로드가 인증 전파 전에 끝났다면, 로그인 확정 시 한 번 더 불러오기
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") {
+        loadAll().catch((e) => console.error(e));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
   // 메인 카테고리 바뀌면 세부 필터 초기화
@@ -492,7 +521,7 @@ export default function Closet({
           >
             {packing
               ? `PACKING · 챙김 ${packedCount}/${items.length}`
-              : `싱가폴 ✈ ${items.length}벌`}
+              : `${items.length}벌`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -570,40 +599,43 @@ export default function Closet({
         </div>
       )}
 
-      {/* 카테고리 필터 */}
-      <nav
-        data-tour="shelves"
-        className="no-scrollbar flex shrink-0 gap-2 overflow-x-auto px-6 pb-4"
-      >
-        <Chip active={filter === "all"} onClick={() => setFilter("all")}>
-          전체 {items.length}
-        </Chip>
-        <Chip
-          active={filter === "favorite"}
-          onClick={() => setFilter("favorite")}
+      {/* 카테고리 필터 + 계절 드롭다운(우측) */}
+      <div className="flex shrink-0 items-center gap-2 px-6 pb-4">
+        <nav
+          data-tour="shelves"
+          className="no-scrollbar flex min-w-0 flex-1 gap-2 overflow-x-auto"
         >
-          ⭐ {favCount}
-        </Chip>
-        {categories.map((c) => (
-          <Chip
-            key={c.id}
-            active={filter === c.id}
-            onClick={() => setFilter(c.id)}
-          >
-            {c.label} {counts[c.id] ?? 0}
+          <Chip active={filter === "all"} onClick={() => setFilter("all")}>
+            전체 {items.length}
           </Chip>
-        ))}
-        <button
-          onClick={() => {
-            openSheet(() => setCatOpen(false));
-            setCatOpen(true);
-          }}
-          className="flex shrink-0 items-center gap-1 rounded-full border-2 border-dashed px-3.5 py-2 text-xs font-bold uppercase transition active:scale-95"
-          style={{ borderColor: LINE, color: MUTED }}
-        >
-          ＋ 선반
-        </button>
-      </nav>
+          <Chip
+            active={filter === "favorite"}
+            onClick={() => setFilter("favorite")}
+          >
+            ⭐ {favCount}
+          </Chip>
+          {categories.map((c) => (
+            <Chip
+              key={c.id}
+              active={filter === c.id}
+              onClick={() => setFilter(c.id)}
+            >
+              {c.label} {counts[c.id] ?? 0}
+            </Chip>
+          ))}
+          <button
+            onClick={() => {
+              openSheet(() => setCatOpen(false));
+              setCatOpen(true);
+            }}
+            className="flex shrink-0 items-center gap-1 rounded-full border-2 border-dashed px-3.5 py-2 text-xs font-bold uppercase transition active:scale-95"
+            style={{ borderColor: LINE, color: MUTED }}
+          >
+            ＋ 카테고리
+          </button>
+        </nav>
+        <SeasonDropdown value={seasonFilter} onChange={setSeasonFilter} />
+      </div>
 
       {/* 세부 카테고리 필터 (메인 카테고리 선택 시 하단에 표시) */}
       {filter !== "all" && filter !== "favorite" && activeSubcats.length > 0 && (
@@ -628,31 +660,6 @@ export default function Closet({
           ))}
         </nav>
       )}
-
-      {/* 계절 필터 */}
-      <nav className="no-scrollbar flex shrink-0 items-center gap-2 px-6 pb-3">
-        <span
-          className="shrink-0 text-[10.5px] font-bold uppercase tracking-wider"
-          style={{ color: MUTED }}
-        >
-          계절
-        </span>
-        <SubChip
-          active={seasonFilter === "all"}
-          onClick={() => setSeasonFilter("all")}
-        >
-          전체
-        </SubChip>
-        {SEASONS.map((s) => (
-          <SubChip
-            key={s.id}
-            active={seasonFilter === s.id}
-            onClick={() => setSeasonFilter(s.id)}
-          >
-            {s.emoji} {s.id}
-          </SubChip>
-        ))}
-      </nav>
 
       {/* 콘텐츠 영역 (남는 화면을 채움) */}
       <div className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
@@ -919,6 +926,66 @@ function Chip({
     >
       {children}
     </button>
+  );
+}
+
+function SeasonDropdown({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const sel = SEASONS.find((s) => s.id === value);
+  return (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 rounded-full border-2 px-3 py-2 text-xs font-bold transition active:scale-95"
+        style={
+          value === "all"
+            ? { background: "transparent", color: MUTED, borderColor: LINE }
+            : { background: TANGERINE, color: "#FFF6F0", borderColor: INK }
+        }
+      >
+        {value === "all" ? "🗓 계절" : `${sel?.emoji} ${value}`}
+        <span className="text-[9px]">▾</span>
+      </button>
+      {open && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className="absolute right-0 z-50 mt-1.5 w-32 overflow-hidden rounded-2xl border-2 bg-white p-1"
+            style={{ borderColor: INK, boxShadow: "0 12px 26px -8px rgba(0,0,0,.3)" }}
+          >
+            {[{ id: "all", emoji: "🗓" }, ...SEASONS].map((s) => {
+              const active = value === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => {
+                    onChange(s.id);
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold"
+                  style={{
+                    background: active ? "#FFF6F0" : "transparent",
+                    color: active ? INK : MUTED,
+                  }}
+                >
+                  <span>{s.emoji}</span>
+                  {s.id === "all" ? "전체" : s.id}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -1277,7 +1344,7 @@ function DetailSheet({
           className="mb-2.5 text-[10.5px] font-bold uppercase tracking-wider"
           style={{ color: MUTED }}
         >
-          다른 선반으로 옮기기
+          다른 카테고리로 옮기기
         </p>
         <div className="no-scrollbar mb-5 flex flex-wrap gap-2">
           {categories.map((c) => (

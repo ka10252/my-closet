@@ -68,10 +68,11 @@ export default function CoordiSheet({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col"
-      style={{ background: "#FFF6F0" }}
-    >
+    <div className="fixed inset-0 z-50 flex justify-center bg-white">
+      <div
+        className="flex h-full w-full max-w-md flex-col overflow-hidden"
+        style={{ background: "#FFF6F0" }}
+      >
       {/* 헤더 */}
       <header className="flex shrink-0 items-center justify-between px-6 pb-3 pt-5">
         <h1
@@ -170,6 +171,7 @@ export default function CoordiSheet({
             </div>
           </div>
         ))}
+      </div>
       </div>
     </div>
   );
