@@ -56,12 +56,52 @@ export async function makeSticker(
     },
   });
 
+  // 흰 옷 등이 반투명하게 나오는 문제 보정: 알파를 대비 강하게 굳힘
+  const solid = await solidifyAlpha(raw);
   // 1차: 투명 여백 자동 트림 (이후 더 필요하면 누끼 편집에서 수동 크롭)
-  const trimmed = await trimTransparent(raw);
+  const trimmed = await trimTransparent(solid);
   // 업로드 가볍게: 컷아웃을 표시 크기에 맞게 축소(투명 PNG 유지)
   const cutout = await downscalePng(trimmed, OUTPUT_MAX);
   // sticker 자리도 같은 컷아웃(별도 테두리 파일 안 만듦)
   return { cutout, sticker: cutout };
+}
+
+/**
+ * 반투명하게 나온 옷(특히 흰 옷)을 불투명하게 굳힘.
+ * 세그멘테이션 모델은 흰 옷을 배경으로 헷갈려 알파를 낮게 주는 경향이 있어,
+ * 알파를 대비 강하게 리매핑한다: lo 이하는 배경(0), hi 이상은 완전 불투명(255),
+ * 그 사이만 부드러운 가장자리로 남김.
+ */
+export async function solidifyAlpha(
+  blob: Blob,
+  lo = 20,
+  hi = 90,
+): Promise<Blob> {
+  try {
+    const bmp = await createImageBitmap(blob);
+    const w = bmp.width;
+    const h = bmp.height;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(bmp, 0, 0);
+    bmp.close();
+    const img = ctx.getImageData(0, 0, w, h);
+    const d = img.data;
+    const span = hi - lo;
+    for (let i = 3; i < d.length; i += 4) {
+      const a = d[i];
+      d[i] =
+        a <= lo ? 0 : a >= hi ? 255 : Math.round(((a - lo) / span) * 255);
+    }
+    ctx.putImageData(img, 0, 0);
+    return await new Promise<Blob>((r) =>
+      canvas.toBlob((b) => r(b ?? blob), "image/png"),
+    );
+  } catch {
+    return blob;
+  }
 }
 
 /** 투명 여백을 잘라내 옷의 실제 바운딩박스에 맞춤 (약간의 여백 pad 유지) */

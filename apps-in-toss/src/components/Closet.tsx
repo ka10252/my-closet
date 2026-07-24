@@ -97,6 +97,11 @@ export default function Closet({
   const [confirmDialog, setConfirmDialog] = useState<
     (ConfirmOpts & { resolve: (v: boolean) => void }) | null
   >(null);
+  const [toast, setToast] = useState<{
+    msg: string;
+    onRetry?: () => void;
+  } | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [hidden, setHidden] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(HIDDEN_CATS_KEY) || "[]");
@@ -137,11 +142,10 @@ export default function Closet({
     setItems((prev) =>
       prev.map((i) => (i.id === item.id ? { ...i, board_x: x, board_y: y } : i)),
     );
-    try {
-      await updateClothing(item.id, { board_x: x, board_y: y });
-    } catch (e) {
-      console.error(e);
-    }
+    await persist(
+      () => updateClothing(item.id, { board_x: x, board_y: y }),
+      "위치를 저장하지 못했어요",
+    );
   }
 
   // 전체(숨김 포함) — 카테고리 편집 화면용. categories = 화면에 보이는 것(숨김 제외)
@@ -151,45 +155,46 @@ export default function Closet({
     [allCategories, hidden],
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    const supabase = createClient();
-
-    async function loadAll() {
+  async function reload() {
+    setLoadError(false);
+    try {
       // 로그인 직후엔 세션 토큰이 아직 전파되지 않아 빈 목록이 올 수 있어서,
       // 세션이 확실히 준비된 뒤 불러온다 (그래야 새로고침 없이 바로 뜸)
-      await supabase.auth.getSession();
+      await createClient().auth.getSession();
       const [cl, cats, subs] = await Promise.all([
         fetchClothes(),
         fetchCustomCategories(),
         fetchSubcategories(),
       ]);
-      if (cancelled) return;
       setItems(cl);
       setCustom(cats);
       setSubcats(subs);
+    } catch (e) {
+      console.error(e);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
     }
+  }
 
-    loadAll()
-      .catch((e) => console.error(e))
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    // 만약 최초 로드가 인증 전파 전에 끝났다면, 로그인 확정 시 한 번 더 불러오기
+  useEffect(() => {
+    reload();
+    // 로그인 확정 시 한 번 더 불러오기 (인증 전파 레이스 방지)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN") {
-        loadAll().catch((e) => console.error(e));
-      }
+    } = createClient().auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") reload();
     });
-
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 토스트 자동 사라짐
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 5000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   // 메인 카테고리 바뀌면 세부 필터 초기화
   useEffect(() => {
@@ -239,6 +244,20 @@ export default function Closet({
     return new Promise((resolve) => setConfirmDialog({ ...opts, resolve }));
   }
 
+  function showToast(msg: string, onRetry?: () => void) {
+    setToast({ msg, onRetry });
+  }
+
+  // DB 저장을 감싸 실패 시 '다시 시도' 토스트를 띄움
+  async function persist(fn: () => Promise<unknown>, errMsg: string) {
+    try {
+      await fn();
+    } catch (e) {
+      console.error(e);
+      showToast(errMsg, () => persist(fn, errMsg));
+    }
+  }
+
   // 현재 선택된 메인 카테고리의 세부 카테고리들
   const activeSubcats = useMemo(
     () =>
@@ -258,11 +277,7 @@ export default function Closet({
   async function handleDelete(item: Clothing) {
     setItems((prev) => prev.filter((i) => i.id !== item.id));
     closeTop();
-    try {
-      await deleteClothing(item);
-    } catch (e) {
-      console.error(e);
-    }
+    await persist(() => deleteClothing(item), "삭제에 실패했어요");
   }
 
   async function handleChangeCategory(item: Clothing, category: string) {
@@ -270,11 +285,10 @@ export default function Closet({
       prev.map((i) => (i.id === item.id ? { ...i, category } : i)),
     );
     setSelected((s) => (s ? { ...s, category } : s));
-    try {
-      await updateClothing(item.id, { category });
-    } catch (e) {
-      console.error(e);
-    }
+    await persist(
+      () => updateClothing(item.id, { category }),
+      "변경사항을 저장하지 못했어요",
+    );
   }
 
   async function toggleFavorite(item: Clothing) {
@@ -285,11 +299,10 @@ export default function Closet({
     setSelected((s) =>
       s && s.id === item.id ? { ...s, is_favorite: next } : s,
     );
-    try {
-      await updateClothing(item.id, { is_favorite: next });
-    } catch (e) {
-      console.error(e);
-    }
+    await persist(
+      () => updateClothing(item.id, { is_favorite: next }),
+      "변경사항을 저장하지 못했어요",
+    );
   }
 
   async function handleSetSeason(item: Clothing, season: string | null) {
@@ -298,11 +311,10 @@ export default function Closet({
       prev.map((i) => (i.id === item.id ? { ...i, season: next } : i)),
     );
     setSelected((s) => (s && s.id === item.id ? { ...s, season: next } : s));
-    try {
-      await updateClothing(item.id, { season: next });
-    } catch (e) {
-      console.error(e);
-    }
+    await persist(
+      () => updateClothing(item.id, { season: next }),
+      "변경사항을 저장하지 못했어요",
+    );
   }
 
   async function handleRename(item: Clothing, name: string) {
@@ -312,11 +324,10 @@ export default function Closet({
       prev.map((i) => (i.id === item.id ? { ...i, name: value } : i)),
     );
     setSelected((s) => (s && s.id === item.id ? { ...s, name: value } : s));
-    try {
-      await updateClothing(item.id, { name: value });
-    } catch (e) {
-      console.error(e);
-    }
+    await persist(
+      () => updateClothing(item.id, { name: value }),
+      "이름을 저장하지 못했어요",
+    );
   }
 
   async function togglePacked(item: Clothing) {
@@ -324,11 +335,10 @@ export default function Closet({
     setItems((prev) =>
       prev.map((i) => (i.id === item.id ? { ...i, is_packed: next } : i)),
     );
-    try {
-      await updateClothing(item.id, { is_packed: next });
-    } catch (e) {
-      console.error(e);
-    }
+    await persist(
+      () => updateClothing(item.id, { is_packed: next }),
+      "저장에 실패했어요",
+    );
   }
 
   async function handleResetPacked() {
@@ -339,11 +349,7 @@ export default function Closet({
     });
     if (!ok) return;
     setItems((prev) => prev.map((i) => ({ ...i, is_packed: false })));
-    try {
-      await resetAllPacked();
-    } catch (e) {
-      console.error(e);
-    }
+    await persist(() => resetAllPacked(), "초기화에 실패했어요");
   }
 
   async function handleAddCategory(label: string, emoji: string) {
@@ -352,6 +358,7 @@ export default function Closet({
       setCustom((prev) => [...prev, cat]);
     } catch (e) {
       console.error(e);
+      showToast("카테고리 추가에 실패했어요");
     }
   }
 
@@ -403,6 +410,7 @@ export default function Closet({
       await deleteCustomCategory(cat.id);
     } catch (e) {
       console.error(e);
+      showToast("삭제 중 문제가 발생했어요");
     }
   }
 
@@ -412,6 +420,7 @@ export default function Closet({
       setSubcats((prev) => [...prev, sub]);
     } catch (e) {
       console.error(e);
+      showToast("세부 추가에 실패했어요");
     }
   }
 
@@ -490,6 +499,7 @@ export default function Closet({
       await deleteSubcategory(sub.id);
     } catch (e) {
       console.error(e);
+      showToast("세부 삭제에 실패했어요");
     }
   }
 
@@ -499,11 +509,10 @@ export default function Closet({
       prev.map((i) => (i.id === item.id ? { ...i, subcategory: next } : i)),
     );
     setSelected((s) => (s && s.id === item.id ? { ...s, subcategory: next } : s));
-    try {
-      await updateClothing(item.id, { subcategory: next });
-    } catch (e) {
-      console.error(e);
-    }
+    await persist(
+      () => updateClothing(item.id, { subcategory: next }),
+      "변경사항을 저장하지 못했어요",
+    );
   }
 
   function applyUpdated(updated: Clothing) {
@@ -520,6 +529,7 @@ export default function Closet({
       applyUpdated(updated);
     } catch (e) {
       console.error(e);
+      showToast("사진 변경에 실패했어요");
     }
   }
 
@@ -532,6 +542,7 @@ export default function Closet({
       applyUpdated(updated);
     } catch (e) {
       console.error(e);
+      showToast("편집 저장에 실패했어요");
     }
   }
 
@@ -753,6 +764,23 @@ export default function Closet({
               ))}
             </div>
           ))}
+        </div>
+      ) : loadError ? (
+        <div className="px-6 py-20 text-center">
+          <div className="text-5xl">😵‍💫</div>
+          <p className="mt-4 text-lg font-bold" style={{ color: INK }}>
+            옷장을 불러오지 못했어요
+          </p>
+          <p className="mt-1 text-sm" style={{ color: MUTED }}>
+            네트워크를 확인하고 다시 시도해 주세요
+          </p>
+          <button
+            onClick={reload}
+            className="font-kr mt-5 rounded-2xl border-2 px-6 py-3 text-sm font-bold text-white transition active:scale-95"
+            style={{ background: TANGERINE, borderColor: INK }}
+          >
+            다시 시도
+          </button>
         </div>
       ) : visible.length === 0 ? (
         <div className="px-6 py-20 text-center">
@@ -1000,6 +1028,31 @@ export default function Closet({
             setConfirmDialog(null);
           }}
         />
+      )}
+
+      {/* 에러 토스트 */}
+      {toast && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[75] mx-auto flex max-w-md justify-center px-6">
+          <div
+            className="pointer-events-auto flex items-center gap-3 rounded-2xl border-2 px-4 py-3 text-sm font-bold text-white"
+            style={{ background: INK, borderColor: INK }}
+          >
+            <span>{toast.msg}</span>
+            {toast.onRetry && (
+              <button
+                onClick={() => {
+                  const retry = toast.onRetry!;
+                  setToast(null);
+                  retry();
+                }}
+                className="rounded-full px-2.5 py-1 text-xs"
+                style={{ background: TANGERINE }}
+              >
+                다시 시도
+              </button>
+            )}
+          </div>
+        </div>
       )}
     </main>
   );

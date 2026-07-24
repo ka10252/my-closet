@@ -61,11 +61,12 @@ export default function AddSheet({
     e.target.value = "";
     setError("");
     setPhase("processing");
-    try {
-      const { makeSticker } = await import("@/lib/sticker");
-      const made: Entry[] = [];
-      for (let i = 0; i < files.length; i++) {
-        setProgressText(`${i + 1} / ${files.length}장 배경 지우는 중…`);
+    const { makeSticker } = await import("@/lib/sticker");
+    const made: Entry[] = [];
+    let failed = 0;
+    for (let i = 0; i < files.length; i++) {
+      setProgressText(`${i + 1} / ${files.length}장 배경 지우는 중…`);
+      try {
         const { cutout, sticker } = await makeSticker(files[i], {
           onProgress: (p, ratio) => {
             const pct = Math.round(ratio * 100);
@@ -76,24 +77,40 @@ export default function AddSheet({
             );
           },
         });
-        made.push({
-          id: crypto.randomUUID(),
-          cutout,
-          sticker,
-          url: URL.createObjectURL(cutout),
-          name: "",
-          category: defaultCat,
-          subcategory: null,
-          season: null,
-        });
+        made.push(makeEntry(cutout, sticker));
+      } catch (err) {
+        // 누끼 실패 → 원본 그대로 담고, 나중에 수동 편집하도록 안내
+        console.error(err);
+        failed++;
+        const raw = await downscaleFile(files[i]);
+        made.push(makeEntry(raw, raw));
       }
-      setEntries((prev) => [...prev, ...made]);
-      setPhase("review");
-    } catch (err) {
-      console.error(err);
+    }
+    if (!made.length) {
       setError("이미지 처리에 실패했어요. 다른 사진으로 다시 시도해 주세요.");
       setPhase(entries.length ? "review" : "pick");
+      return;
     }
+    setEntries((prev) => [...prev, ...made]);
+    setPhase("review");
+    if (failed > 0) {
+      setError(
+        "일부 사진은 배경 제거(누끼)에 실패해 원본 그대로 담았어요. 다른 사진으로 다시 올리거나, 추가한 뒤 상세 화면의 ✂️ 누끼 편집에서 지우개로 직접 다듬을 수 있어요.",
+      );
+    }
+  }
+
+  function makeEntry(cutout: Blob, sticker: Blob): Entry {
+    return {
+      id: crypto.randomUUID(),
+      cutout,
+      sticker,
+      url: URL.createObjectURL(cutout),
+      name: "",
+      category: defaultCat,
+      subcategory: null,
+      season: null,
+    };
   }
 
   function updateEntry(id: string, patch: Partial<Entry>) {
@@ -333,6 +350,26 @@ export default function AddSheet({
       </div>
     </div>
   );
+}
+
+// 누끼 실패 시 원본을 적당히 줄여서 그대로 담기용
+async function downscaleFile(file: File, maxDim = 1080): Promise<Blob> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+    const w = Math.round(bmp.width * scale);
+    const h = Math.round(bmp.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d")!.drawImage(bmp, 0, 0, w, h);
+    bmp.close();
+    return await new Promise<Blob>((res) =>
+      canvas.toBlob((b) => res(b ?? file), "image/jpeg", 0.9),
+    );
+  } catch {
+    return file;
+  }
 }
 
 // 옷 한 벌의 메인 카테고리(선반) 선택 + 즉석 생성
