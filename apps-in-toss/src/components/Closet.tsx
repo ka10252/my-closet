@@ -6,7 +6,6 @@ import {
   fetchClothes,
   deleteClothing,
   updateClothing,
-  reassignCategory,
   resetAllPacked,
   replaceImage,
 } from "@/lib/clothes";
@@ -23,6 +22,7 @@ import {
 import {
   mergeCategories,
   findCategory,
+  SEASONS,
   type EffectiveCategory,
   type Subcategory,
   type Clothing,
@@ -37,16 +37,16 @@ const INK = "#2A1206";
 const MUTED = "#B0846A";
 const LINE = "#F3C9B4";
 
-const SEASONS = [
-  { id: "봄", emoji: "🌸" },
-  { id: "여름", emoji: "☀️" },
-  { id: "가을", emoji: "🍂" },
-  { id: "겨울", emoji: "❄️" },
-] as const;
-
 const HIDDEN_CATS_KEY = "mycloset_hidden_cats";
 
 type Filter = "all" | "favorite" | string;
+
+interface ConfirmOpts {
+  title: string;
+  message?: string;
+  confirmText?: string;
+  danger?: boolean;
+}
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -90,8 +90,13 @@ export default function Closet({
   const [filter, setFilter] = useState<Filter>("all");
   const [subFilter, setSubFilter] = useState<string>("all");
   const [seasonFilter, setSeasonFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [packing, setPacking] = useState(false);
   const [unpackedOnly, setUnpackedOnly] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<
+    (ConfirmOpts & { resolve: (v: boolean) => void }) | null
+  >(null);
   const [hidden, setHidden] = useState<string[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(HIDDEN_CATS_KEY) || "[]");
@@ -221,10 +226,18 @@ export default function Closet({
       list = list.filter((i) => i.subcategory === subFilter);
     if (seasonFilter !== "all")
       list = list.filter((i) => i.season === seasonFilter);
+    // 이름 검색
+    const q = search.trim().toLowerCase();
+    if (q) list = list.filter((i) => (i.name ?? "").toLowerCase().includes(q));
     // 패킹 모드에서 '안 담은 옷만' 보기
     if (packing && unpackedOnly) list = list.filter((i) => !i.is_packed);
     return list;
-  }, [items, filter, subFilter, seasonFilter, packing, unpackedOnly]);
+  }, [items, filter, subFilter, seasonFilter, search, packing, unpackedOnly]);
+
+  // 앱 톤의 확인 모달 (브라우저 confirm 대체)
+  function askConfirm(opts: ConfirmOpts): Promise<boolean> {
+    return new Promise((resolve) => setConfirmDialog({ ...opts, resolve }));
+  }
 
   // 현재 선택된 메인 카테고리의 세부 카테고리들
   const activeSubcats = useMemo(
@@ -319,7 +332,12 @@ export default function Closet({
   }
 
   async function handleResetPacked() {
-    if (!confirm("체크한 옷들의 '챙김' 표시를 모두 지울까요?")) return;
+    const ok = await askConfirm({
+      title: "챙김 표시를 모두 지울까요?",
+      message: "체크한 옷들의 '챙김' 표시가 초기화돼요.",
+      confirmText: "초기화",
+    });
+    if (!ok) return;
     setItems((prev) => prev.map((i) => ({ ...i, is_packed: false })));
     try {
       await resetAllPacked();
@@ -364,17 +382,24 @@ export default function Closet({
   }
 
   async function handleDeleteCategory(cat: EffectiveCategory) {
-    if (
-      !confirm(`'${cat.label}' 카테고리를 삭제할까요? 옷은 '기타'로 이동돼요.`)
-    )
-      return;
+    const inCat = items.filter((i) => i.category === cat.id);
+    const ok = await askConfirm({
+      title: `'${cat.label}' 카테고리를 삭제할까요?`,
+      message:
+        inCat.length > 0
+          ? `이 카테고리에 저장된 옷 ${inCat.length}벌도 함께 삭제돼요. 되돌릴 수 없어요.`
+          : "되돌릴 수 없어요.",
+      confirmText: "삭제",
+      danger: true,
+    });
+    if (!ok) return;
+    // 이 카테고리의 옷 + 카테고리를 함께 삭제
+    const delIds = new Set(inCat.map((i) => i.id));
+    setItems((prev) => prev.filter((i) => !delIds.has(i.id)));
     setCustom((prev) => prev.filter((c) => c.id !== cat.id));
-    setItems((prev) =>
-      prev.map((i) => (i.category === cat.id ? { ...i, category: "other" } : i)),
-    );
     if (filter === cat.id) setFilter("all");
     try {
-      await reassignCategory(cat.id, "other");
+      await Promise.all(inCat.map((i) => deleteClothing(i)));
       await deleteCustomCategory(cat.id);
     } catch (e) {
       console.error(e);
@@ -446,7 +471,13 @@ export default function Closet({
   }
 
   async function handleDeleteSub(sub: Subcategory) {
-    if (!confirm(`세부 '${sub.label}' 삭제할까요?`)) return;
+    const ok = await askConfirm({
+      title: `세부 '${sub.label}' 삭제할까요?`,
+      message: "이 세부 분류만 없어지고, 옷은 그대로 남아요.",
+      confirmText: "삭제",
+      danger: true,
+    });
+    if (!ok) return;
     setSubcats((prev) => prev.filter((s) => s.id !== sub.id));
     if (subFilter === sub.id) setSubFilter("all");
     // 이 세부에 속했던 옷들은 세부 해제
@@ -526,6 +557,21 @@ export default function Closet({
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => {
+              setSearchOpen((o) => !o);
+              if (searchOpen) setSearch("");
+            }}
+            aria-label="검색"
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 text-sm transition active:scale-95"
+            style={
+              searchOpen
+                ? { background: TANGERINE, borderColor: INK }
+                : { background: "transparent", borderColor: LINE, color: MUTED }
+            }
+          >
+            🔍
+          </button>
+          <button
             data-tour="coordi"
             onClick={() => {
               openSheet(() => setCoordiOpen(false));
@@ -558,6 +604,20 @@ export default function Closet({
         </div>
       </header>
 
+      {/* 이름 검색 */}
+      {searchOpen && (
+        <div className="shrink-0 px-6 pb-3">
+          <input
+            autoFocus
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="옷 이름으로 검색"
+            className="w-full rounded-full border-2 px-4 py-2.5 text-sm outline-none"
+            style={{ borderColor: INK, color: INK }}
+          />
+        </div>
+      )}
+
       {/* 패킹 진행 바 */}
       {packing && items.length > 0 && (
         <div className="shrink-0 px-6 pb-3">
@@ -584,6 +644,15 @@ export default function Closet({
               }}
             />
           </div>
+          {/* 짐 다 쌌을 때 축하 */}
+          {packedCount === items.length && (
+            <p
+              className="font-kr mt-2 animate-pulse text-center text-sm font-bold"
+              style={{ color: TANGERINE }}
+            >
+              🎉 짐 다 쌌어요! 이제 떠날 준비 끝!
+            </p>
+          )}
           {/* 안 담은 옷만 보기 토글 */}
           <button
             onClick={() => setUnpackedOnly((v) => !v)}
@@ -664,9 +733,27 @@ export default function Closet({
       {/* 콘텐츠 영역 (남는 화면을 채움) */}
       <div className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
       {loading ? (
-        <p className="px-6 py-16 text-center text-sm" style={{ color: MUTED }}>
-          불러오는 중…
-        </p>
+        <div className="px-6 pt-8">
+          {[0, 1, 2].map((r) => (
+            <div key={r} className="mb-9 flex justify-around gap-1">
+              {[0, 1].map((c) => (
+                <div
+                  key={c}
+                  className="flex w-[168px] flex-col items-center gap-3"
+                >
+                  <div
+                    className="h-[180px] w-[118px] animate-pulse rounded-2xl"
+                    style={{ background: "#FCEAE0" }}
+                  />
+                  <div
+                    className="h-3 w-16 animate-pulse rounded-full"
+                    style={{ background: "#FCEAE0" }}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
       ) : visible.length === 0 ? (
         <div className="px-6 py-20 text-center">
           <div
@@ -901,6 +988,19 @@ export default function Closet({
           onClose={closeTop}
         />
       )}
+
+      {confirmDialog && (
+        <ConfirmModal
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText}
+          danger={confirmDialog.danger}
+          onResult={(v) => {
+            confirmDialog.resolve(v);
+            setConfirmDialog(null);
+          }}
+        />
+      )}
     </main>
   );
 }
@@ -926,6 +1026,65 @@ function Chip({
     >
       {children}
     </button>
+  );
+}
+
+function ConfirmModal({
+  title,
+  message,
+  confirmText = "확인",
+  danger,
+  onResult,
+}: {
+  title: string;
+  message?: string;
+  confirmText?: string;
+  danger?: boolean;
+  onResult: (v: boolean) => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center px-8"
+      style={{ background: "rgba(20,15,40,.55)" }}
+      onClick={() => onResult(false)}
+    >
+      <div
+        className="w-full max-w-xs rounded-3xl border-2 bg-white p-5"
+        style={{ borderColor: INK, boxShadow: "0 18px 40px -12px rgba(0,0,0,.4)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="font-kr text-lg font-bold" style={{ color: INK }}>
+          {title}
+        </p>
+        {message && (
+          <p
+            className="mt-1.5 text-sm leading-relaxed"
+            style={{ color: danger ? "#C63F1E" : MUTED }}
+          >
+            {message}
+          </p>
+        )}
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={() => onResult(false)}
+            className="font-kr flex-1 rounded-2xl border-2 py-3 text-sm font-bold transition active:scale-[.98]"
+            style={{ borderColor: LINE, color: MUTED }}
+          >
+            취소
+          </button>
+          <button
+            onClick={() => onResult(true)}
+            className="font-kr flex-1 rounded-2xl border-2 py-3 text-sm font-bold text-white transition active:scale-[.98]"
+            style={{
+              background: danger ? "#C63F1E" : TANGERINE,
+              borderColor: INK,
+            }}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

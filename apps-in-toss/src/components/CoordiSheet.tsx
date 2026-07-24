@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Clothing, EffectiveCategory } from "@/lib/categories";
 
 const TANGERINE = "#FF6A3D";
@@ -10,8 +10,19 @@ const LINE = "#F3C9B4";
 
 const src = (i: Clothing) => i.cutout_url ?? i.image_url;
 
-// 코디 구성: 아우터(최상단·옵션) → 상의 → 하의 → 신발 만
-const COORDI = ["outerwear", "top", "bottom", "shoes"] as const;
+const COORDI_KEY = "mycloset_coordi_cats";
+const DEFAULT_COORDI = ["outerwear", "top", "bottom", "shoes"];
+// 위→아래 쌓임 순서 우선순위 (목록에 없는 커스텀 카테고리는 뒤로)
+const PREF = [
+  "outerwear",
+  "top",
+  "activewear",
+  "bottom",
+  "shoes",
+  "accessory",
+  "other",
+];
+const prefIdx = (id: string) => (PREF.indexOf(id) < 0 ? 99 : PREF.indexOf(id));
 const OPTIONAL = new Set(["outerwear"]);
 const smallCat = (id: string) => id === "shoes";
 
@@ -24,14 +35,41 @@ export default function CoordiSheet({
   categories: EffectiveCategory[];
   onClose: () => void;
 }) {
-  // 코디 대상 카테고리(존재 + 옷 보유)만, 정해진 순서대로
+  const [coordiCats, setCoordiCats] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(COORDI_KEY) || "null");
+      return Array.isArray(v) ? v : DEFAULT_COORDI;
+    } catch {
+      return DEFAULT_COORDI;
+    }
+  });
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  function toggleCat(id: string) {
+    setCoordiCats((prev) => {
+      const next = prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : [...prev, id];
+      try {
+        localStorage.setItem(COORDI_KEY, JSON.stringify(next));
+      } catch {
+        // 무시
+      }
+      return next;
+    });
+  }
+
+  // 선택된 코디 카테고리 중 옷이 있는 것만, 위→아래 순서로
   const cats = useMemo(
     () =>
-      COORDI.map((id) => categories.find((c) => c.id === id)).filter(
-        (c): c is EffectiveCategory =>
-          !!c && items.some((i) => i.category === c.id),
-      ),
-    [categories, items],
+      categories
+        .filter(
+          (c): c is EffectiveCategory =>
+            coordiCats.includes(c.id) &&
+            items.some((i) => i.category === c.id),
+        )
+        .sort((a, b) => prefIdx(a.id) - prefIdx(b.id)),
+    [categories, items, coordiCats],
   );
 
   function randomPick(): Record<string, string | null> {
@@ -54,7 +92,12 @@ export default function CoordiSheet({
 
   const [sel, setSel] = useState<Record<string, string | null>>(randomPick);
 
-  // cats 는 이미 아우터→상의→하의→신발 순서
+  // 코디 구성 카테고리를 바꾸면 새로 뽑기
+  useEffect(() => {
+    setSel(randomPick());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coordiCats]);
+
   const chosen = useMemo(
     () =>
       cats
@@ -70,7 +113,7 @@ export default function CoordiSheet({
   return (
     <div className="fixed inset-0 z-50 flex justify-center bg-white">
       <div
-        className="flex h-full w-full max-w-md flex-col overflow-hidden"
+        className="relative flex h-full w-full max-w-md flex-col overflow-hidden"
         style={{ background: "#FFF6F0" }}
       >
       {/* 헤더 */}
@@ -82,6 +125,14 @@ export default function CoordiSheet({
           오늘의 코디
         </h1>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setSettingsOpen(true)}
+            aria-label="코디 구성 설정"
+            className="flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm"
+            style={{ borderColor: INK, color: INK, background: "#fff" }}
+          >
+            ⚙️
+          </button>
           <button
             onClick={() => setSel(randomPick())}
             className="font-kr rounded-full border-2 px-4 py-1.5 text-xs font-bold text-white"
@@ -172,6 +223,56 @@ export default function CoordiSheet({
           </div>
         ))}
       </div>
+
+      {/* 코디 구성 카테고리 설정 팝업 */}
+      {settingsOpen && (
+        <div
+          className="absolute inset-0 z-10 flex items-center justify-center px-8"
+          style={{ background: "rgba(20,15,40,.55)" }}
+          onClick={() => setSettingsOpen(false)}
+        >
+          <div
+            className="w-full max-w-xs rounded-3xl border-2 bg-white p-5"
+            style={{ borderColor: INK, boxShadow: "0 18px 40px -12px rgba(0,0,0,.4)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-kr text-lg font-bold" style={{ color: INK }}>
+              코디에 넣을 카테고리
+            </p>
+            <p className="mt-1 text-xs" style={{ color: MUTED }}>
+              랜덤 코디에 어떤 옷을 조합할지 골라요
+            </p>
+            <div className="no-scrollbar mt-3 max-h-[46dvh] space-y-1.5 overflow-y-auto">
+              {categories.map((c) => {
+                const on = coordiCats.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => toggleCat(c.id)}
+                    className="flex w-full items-center gap-2 rounded-xl border-2 px-3 py-2.5 text-sm font-bold transition active:scale-[.98]"
+                    style={
+                      on
+                        ? { borderColor: INK, background: "#FFF6F0", color: INK }
+                        : { borderColor: LINE, background: "#fff", color: MUTED }
+                    }
+                  >
+                    <span>{c.emoji}</span>
+                    <span className="flex-1 text-left">{c.label}</span>
+                    <span style={{ color: TANGERINE }}>{on ? "✓" : ""}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setSettingsOpen(false)}
+              className="font-kr mt-4 w-full rounded-2xl border-2 py-3 text-sm font-bold text-white"
+              style={{ background: TANGERINE, borderColor: INK }}
+            >
+              완료
+            </button>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );

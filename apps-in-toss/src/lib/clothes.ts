@@ -18,6 +18,7 @@ export interface NewClothing {
   cutout: Blob; // 테두리 없는 컷아웃 (편집 원본)
   category: string;
   subcategory?: string | null;
+  season?: string | null;
   name?: string;
 }
 
@@ -53,6 +54,7 @@ export async function addClothing(input: NewClothing): Promise<Clothing> {
       user_id: user.id,
       category: input.category,
       subcategory: input.subcategory ?? null,
+      season: input.season ?? null,
       name: input.name?.trim() || null,
       image_url: url,
       cutout_url: url,

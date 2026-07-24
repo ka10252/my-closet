@@ -1,3 +1,11 @@
+// 계절 (옷 태그 + 필터 공용)
+export const SEASONS = [
+  { id: "봄", emoji: "🌸" },
+  { id: "여름", emoji: "☀️" },
+  { id: "가을", emoji: "🍂" },
+  { id: "겨울", emoji: "❄️" },
+] as const;
+
 // 옷 카테고리 — 기본(코드) + 커스텀(DB) 을 합쳐서 사용
 
 export interface EffectiveCategory {

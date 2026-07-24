@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { addClothing } from "@/lib/clothes";
-import type {
-  Clothing,
-  EffectiveCategory,
-  Subcategory,
+import {
+  SEASONS,
+  type Clothing,
+  type EffectiveCategory,
+  type Subcategory,
 } from "@/lib/categories";
 
 const TANGERINE = "#FF6A3D";
@@ -23,6 +24,7 @@ interface Entry {
   name: string;
   category: string;
   subcategory: string | null;
+  season: string | null;
 }
 
 export default function AddSheet({
@@ -82,6 +84,7 @@ export default function AddSheet({
           name: "",
           category: defaultCat,
           subcategory: null,
+          season: null,
         });
       }
       setEntries((prev) => [...prev, ...made]);
@@ -116,6 +119,7 @@ export default function AddSheet({
             cutout: en.cutout,
             category: en.category,
             subcategory: en.subcategory,
+            season: en.season,
             name: en.name,
           }),
         ),
@@ -257,6 +261,37 @@ export default function AddSheet({
                       }
                       onCreate={onAddSubcategory}
                     />
+                  </div>
+                  {/* 계절 (선택) */}
+                  <div className="flex items-center gap-1">
+                    {SEASONS.map((s) => {
+                      const on = en.season === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() =>
+                            updateEntry(en.id, { season: on ? null : s.id })
+                          }
+                          className="rounded-lg border-2 px-2 py-1 text-xs font-bold transition active:scale-95"
+                          style={
+                            on
+                              ? {
+                                  background: TANGERINE,
+                                  color: "#FFF6F0",
+                                  borderColor: INK,
+                                }
+                              : {
+                                  background: "#fff",
+                                  color: MUTED,
+                                  borderColor: LINE,
+                                }
+                          }
+                          title={s.id}
+                        >
+                          {s.emoji}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
