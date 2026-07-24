@@ -31,12 +31,14 @@ export default function AddSheet({
   onClose,
   onAddedMany,
   onAddSubcategory,
+  onAddCategory,
 }: {
   categories: EffectiveCategory[];
   subcats: Subcategory[];
   onClose: () => void;
   onAddedMany: (items: Clothing[]) => void;
   onAddSubcategory: (parent: string, label: string) => Promise<Subcategory>;
+  onAddCategory: (label: string) => Promise<EffectiveCategory>;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>("pick");
@@ -235,23 +237,17 @@ export default function AddSheet({
                     </button>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <select
+                    <CatPicker
                       value={en.category}
-                      onChange={(e) =>
+                      categories={categories}
+                      onSelect={(catId) =>
                         updateEntry(en.id, {
-                          category: e.target.value,
+                          category: catId,
                           subcategory: null, // 카테고리 바뀌면 세부 초기화
                         })
                       }
-                      className="min-w-0 flex-1 rounded-lg border-2 bg-white px-2 py-1.5 text-sm outline-none"
-                      style={{ borderColor: LINE, color: INK }}
-                    >
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.emoji} {c.label}
-                        </option>
-                      ))}
-                    </select>
+                      onCreate={onAddCategory}
+                    />
                     <SubPicker
                       categoryId={en.category}
                       value={en.subcategory}
@@ -301,6 +297,66 @@ export default function AddSheet({
         )}
       </div>
     </div>
+  );
+}
+
+// 옷 한 벌의 메인 카테고리(선반) 선택 + 즉석 생성
+function CatPicker({
+  value,
+  categories,
+  onSelect,
+  onCreate,
+}: {
+  value: string;
+  categories: EffectiveCategory[];
+  onSelect: (catId: string) => void;
+  onCreate: (label: string) => Promise<EffectiveCategory>;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [val, setVal] = useState("");
+
+  if (adding) {
+    return (
+      <input
+        autoFocus
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={async () => {
+          const label = val.trim();
+          setVal("");
+          setAdding(false);
+          if (!label) return;
+          try {
+            const cat = await onCreate(label);
+            onSelect(cat.id);
+          } catch {
+            // 생성 실패 시 무시
+          }
+        }}
+        placeholder="예: 잠옷"
+        className="min-w-0 flex-1 rounded-lg border-2 bg-white px-2 py-1.5 text-sm outline-none"
+        style={{ borderColor: INK, color: INK }}
+      />
+    );
+  }
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => {
+        if (e.target.value === "__add__") setAdding(true);
+        else onSelect(e.target.value);
+      }}
+      className="min-w-0 flex-1 rounded-lg border-2 bg-white px-2 py-1.5 text-sm outline-none"
+      style={{ borderColor: LINE, color: INK }}
+    >
+      {categories.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.emoji} {c.label}
+        </option>
+      ))}
+      <option value="__add__">＋ 새 선반…</option>
+    </select>
   );
 }
 

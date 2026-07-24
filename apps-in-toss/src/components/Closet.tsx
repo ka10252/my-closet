@@ -37,6 +37,15 @@ const INK = "#2A1206";
 const MUTED = "#B0846A";
 const LINE = "#F3C9B4";
 
+const SEASONS = [
+  { id: "봄", emoji: "🌸" },
+  { id: "여름", emoji: "☀️" },
+  { id: "가을", emoji: "🍂" },
+  { id: "겨울", emoji: "❄️" },
+] as const;
+
+const HIDDEN_CATS_KEY = "mycloset_hidden_cats";
+
 type Filter = "all" | "favorite" | string;
 
 function chunk<T>(arr: T[], size: number): T[][] {
@@ -69,14 +78,27 @@ function rngFrom(seed: number): () => number {
   };
 }
 
-export default function Closet() {
+export default function Closet({
+  onReplayTour,
+}: {
+  onReplayTour: () => void;
+}) {
   const [items, setItems] = useState<Clothing[]>([]);
   const [custom, setCustom] = useState<EffectiveCategory[]>([]);
   const [subcats, setSubcats] = useState<Subcategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
   const [subFilter, setSubFilter] = useState<string>("all");
+  const [seasonFilter, setSeasonFilter] = useState<string>("all");
   const [packing, setPacking] = useState(false);
+  const [unpackedOnly, setUnpackedOnly] = useState(false);
+  const [hidden, setHidden] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(HIDDEN_CATS_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  });
   const [addOpen, setAddOpen] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
   const [coordiOpen, setCoordiOpen] = useState(false);
@@ -117,7 +139,12 @@ export default function Closet() {
     }
   }
 
-  const categories = useMemo(() => mergeCategories(custom), [custom]);
+  // 전체(숨김 포함) — 카테고리 편집 화면용. categories = 화면에 보이는 것(숨김 제외)
+  const allCategories = useMemo(() => mergeCategories(custom), [custom]);
+  const categories = useMemo(
+    () => allCategories.filter((c) => !hidden.includes(c.id)),
+    [allCategories, hidden],
+  );
 
   useEffect(() => {
     Promise.all([fetchClothes(), fetchCustomCategories(), fetchSubcategories()])
@@ -163,8 +190,12 @@ export default function Closet() {
     else if (filter !== "all") list = items.filter((i) => i.category === filter);
     if (filter !== "all" && filter !== "favorite" && subFilter !== "all")
       list = list.filter((i) => i.subcategory === subFilter);
+    if (seasonFilter !== "all")
+      list = list.filter((i) => i.season === seasonFilter);
+    // 패킹 모드에서 '안 담은 옷만' 보기
+    if (packing && unpackedOnly) list = list.filter((i) => !i.is_packed);
     return list;
-  }, [items, filter, subFilter]);
+  }, [items, filter, subFilter, seasonFilter, packing, unpackedOnly]);
 
   // 현재 선택된 메인 카테고리의 세부 카테고리들
   const activeSubcats = useMemo(
@@ -219,17 +250,14 @@ export default function Closet() {
     }
   }
 
-  async function handleScale(item: Clothing, delta: number) {
-    const next = Math.round(
-      Math.min(2, Math.max(0.5, (item.scale ?? 1) + delta)) * 100,
-    ) / 100;
-    if (next === item.scale) return;
+  async function handleSetSeason(item: Clothing, season: string | null) {
+    const next = item.season === season ? null : season; // 다시 누르면 해제
     setItems((prev) =>
-      prev.map((i) => (i.id === item.id ? { ...i, scale: next } : i)),
+      prev.map((i) => (i.id === item.id ? { ...i, season: next } : i)),
     );
-    setSelected((s) => (s && s.id === item.id ? { ...s, scale: next } : s));
+    setSelected((s) => (s && s.id === item.id ? { ...s, season: next } : s));
     try {
-      await updateClothing(item.id, { scale: next });
+      await updateClothing(item.id, { season: next });
     } catch (e) {
       console.error(e);
     }
@@ -244,20 +272,6 @@ export default function Closet() {
     setSelected((s) => (s && s.id === item.id ? { ...s, name: value } : s));
     try {
       await updateClothing(item.id, { name: value });
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async function handleOffset(item: Clothing, delta: number) {
-    const next = Math.min(140, Math.max(-140, (item.offset_y ?? 0) + delta));
-    if (next === item.offset_y) return;
-    setItems((prev) =>
-      prev.map((i) => (i.id === item.id ? { ...i, offset_y: next } : i)),
-    );
-    setSelected((s) => (s && s.id === item.id ? { ...s, offset_y: next } : s));
-    try {
-      await updateClothing(item.id, { offset_y: next });
     } catch (e) {
       console.error(e);
     }
@@ -292,6 +306,32 @@ export default function Closet() {
     } catch (e) {
       console.error(e);
     }
+  }
+
+  // 추가 화면에서 새 메인 카테고리 즉석 생성 (생성된 항목을 돌려줌)
+  async function handleAddCategoryReturning(label: string) {
+    const cat = await addCustomCategory(label, "🏷️");
+    setCustom((prev) => [...prev, cat]);
+    return cat;
+  }
+
+  // 기본 카테고리 숨기기/복원 (localStorage 저장, 옷 데이터는 그대로 유지)
+  function handleToggleHide(cat: EffectiveCategory) {
+    const next = hidden.includes(cat.id)
+      ? hidden.filter((x) => x !== cat.id)
+      : [...hidden, cat.id];
+    setHidden(next);
+    try {
+      localStorage.setItem(HIDDEN_CATS_KEY, JSON.stringify(next));
+    } catch {
+      // 저장 실패해도 무시
+    }
+    if (!hidden.includes(cat.id) && filter === cat.id) setFilter("all");
+  }
+
+  function handleReplayTour() {
+    closeTop();
+    onReplayTour();
   }
 
   async function handleDeleteCategory(cat: EffectiveCategory) {
@@ -515,6 +555,18 @@ export default function Closet() {
               }}
             />
           </div>
+          {/* 안 담은 옷만 보기 토글 */}
+          <button
+            onClick={() => setUnpackedOnly((v) => !v)}
+            className="mt-2 rounded-full border-2 px-3 py-1.5 text-[11px] font-bold transition active:scale-95"
+            style={
+              unpackedOnly
+                ? { background: TANGERINE, color: "#FFF6F0", borderColor: INK }
+                : { background: "transparent", color: MUTED, borderColor: LINE }
+            }
+          >
+            {unpackedOnly ? "✓ 안 담은 옷만 보는 중" : "안 담은 옷만 보기"}
+          </button>
         </div>
       )}
 
@@ -576,6 +628,31 @@ export default function Closet() {
           ))}
         </nav>
       )}
+
+      {/* 계절 필터 */}
+      <nav className="no-scrollbar flex shrink-0 items-center gap-2 px-6 pb-3">
+        <span
+          className="shrink-0 text-[10.5px] font-bold uppercase tracking-wider"
+          style={{ color: MUTED }}
+        >
+          계절
+        </span>
+        <SubChip
+          active={seasonFilter === "all"}
+          onClick={() => setSeasonFilter("all")}
+        >
+          전체
+        </SubChip>
+        {SEASONS.map((s) => (
+          <SubChip
+            key={s.id}
+            active={seasonFilter === s.id}
+            onClick={() => setSeasonFilter(s.id)}
+          >
+            {s.emoji} {s.id}
+          </SubChip>
+        ))}
+      </nav>
 
       {/* 콘텐츠 영역 (남는 화면을 채움) */}
       <div className="relative min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
@@ -752,6 +829,7 @@ export default function Closet() {
           categories={categories}
           subcats={subcats}
           onAddSubcategory={handleAddSubcategoryReturning}
+          onAddCategory={handleAddCategoryReturning}
           onClose={closeTop}
           onAddedMany={(newItems) => {
             setItems((prev) => [...newItems, ...prev]);
@@ -762,16 +840,19 @@ export default function Closet() {
 
       {catOpen && (
         <CategorySheet
-          categories={categories}
+          categories={allCategories}
           subcats={subcats}
           catCounts={counts}
           subCounts={subCounts}
+          hidden={hidden}
           onAddCategory={handleAddCategory}
           onRenameCategory={handleRenameCategory}
           onDeleteCategory={handleDeleteCategory}
+          onToggleHide={handleToggleHide}
           onAddSub={handleAddSub}
           onRenameSub={handleRenameSub}
           onDeleteSub={handleDeleteSub}
+          onReplayTour={handleReplayTour}
           onClose={closeTop}
         />
       )}
@@ -786,8 +867,7 @@ export default function Closet() {
           onChangeCategory={handleChangeCategory}
           onToggleFavorite={toggleFavorite}
           onRename={handleRename}
-          onScale={handleScale}
-          onOffset={handleOffset}
+          onSetSeason={handleSetSeason}
           onSetSub={handleSetItemSub}
           onAddCategory={handleAddCategoryFromDetail}
           onAddSub={handleAddSubFromDetail}
@@ -1010,8 +1090,7 @@ function DetailSheet({
   onChangeCategory,
   onToggleFavorite,
   onRename,
-  onScale,
-  onOffset,
+  onSetSeason,
   onSetSub,
   onAddCategory,
   onAddSub,
@@ -1026,8 +1105,7 @@ function DetailSheet({
   onChangeCategory: (item: Clothing, category: string) => void;
   onToggleFavorite: (item: Clothing) => void;
   onRename: (item: Clothing, name: string) => void;
-  onScale: (item: Clothing, delta: number) => void;
-  onOffset: (item: Clothing, delta: number) => void;
+  onSetSeason: (item: Clothing, season: string | null) => void;
   onSetSub: (item: Clothing, subId: string | null) => void;
   onAddCategory: (item: Clothing, label: string) => void;
   onAddSub: (item: Clothing, label: string) => void;
@@ -1171,79 +1249,28 @@ function DetailSheet({
           />
         </div>
 
-        {/* 크기 조절 */}
-        <div
-          className="mb-4 flex items-center justify-between rounded-2xl border-2 px-4 py-2.5"
-          style={{ borderColor: LINE }}
+        {/* 계절 */}
+        <p
+          className="mb-2.5 text-[10.5px] font-bold uppercase tracking-wider"
+          style={{ color: MUTED }}
         >
-          <span
-            className="text-[10.5px] font-bold uppercase tracking-wider"
-            style={{ color: MUTED }}
-          >
-            옷 크기
-          </span>
-          <div className="flex items-center gap-3">
+          계절
+        </p>
+        <div className="mb-5 flex flex-wrap gap-2">
+          {SEASONS.map((s) => (
             <button
-              onClick={() => onScale(item, -0.15)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border-2 text-lg font-bold"
-              style={{ borderColor: INK, color: INK }}
-              aria-label="작게"
+              key={s.id}
+              onClick={() => onSetSeason(item, s.id)}
+              className="rounded-full border-2 px-3 py-2 text-xs font-bold transition active:scale-95"
+              style={
+                item.season === s.id
+                  ? { background: TANGERINE, color: "#FFF6F0", borderColor: INK }
+                  : { background: "transparent", color: MUTED, borderColor: LINE }
+              }
             >
-              −
+              {s.emoji} {s.id}
             </button>
-            <span
-              className="w-10 text-center text-sm font-bold"
-              style={{ color: INK }}
-            >
-              {Math.round((item.scale ?? 1) * 100)}%
-            </span>
-            <button
-              onClick={() => onScale(item, 0.15)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border-2 text-lg font-bold text-white"
-              style={{ background: TANGERINE, borderColor: INK }}
-              aria-label="크게"
-            >
-              ＋
-            </button>
-          </div>
-        </div>
-
-        {/* 위아래 위치 */}
-        <div
-          className="mb-4 flex items-center justify-between rounded-2xl border-2 px-4 py-2.5"
-          style={{ borderColor: LINE }}
-        >
-          <span
-            className="text-[10.5px] font-bold uppercase tracking-wider"
-            style={{ color: MUTED }}
-          >
-            위아래 위치
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => onOffset(item, -12)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border-2 text-lg font-bold"
-              style={{ borderColor: INK, color: INK }}
-              aria-label="위로"
-            >
-              ↑
-            </button>
-            <button
-              onClick={() => onOffset(item, 12)}
-              className="flex h-8 w-8 items-center justify-center rounded-full border-2 text-lg font-bold"
-              style={{ borderColor: INK, color: INK }}
-              aria-label="아래로"
-            >
-              ↓
-            </button>
-            <button
-              onClick={() => onOffset(item, -(item.offset_y ?? 0))}
-              className="rounded-full border-2 px-3 py-1.5 text-[11px] font-bold uppercase"
-              style={{ borderColor: LINE, color: MUTED }}
-            >
-              가운데
-            </button>
-          </div>
+          ))}
         </div>
 
         <p

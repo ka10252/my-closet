@@ -120,6 +120,7 @@ export async function updateClothing(
       | "name"
       | "category"
       | "subcategory"
+      | "season"
       | "is_favorite"
       | "is_packed"
       | "scale"

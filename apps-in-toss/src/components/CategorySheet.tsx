@@ -15,24 +15,30 @@ export default function CategorySheet({
   subcats,
   catCounts,
   subCounts,
+  hidden,
   onAddCategory,
   onRenameCategory,
   onDeleteCategory,
+  onToggleHide,
   onAddSub,
   onRenameSub,
   onDeleteSub,
+  onReplayTour,
   onClose,
 }: {
   categories: EffectiveCategory[];
   subcats: Subcategory[];
   catCounts: Record<string, number>;
   subCounts: Record<string, number>;
+  hidden: string[];
   onAddCategory: (label: string, emoji: string) => Promise<void> | void;
   onRenameCategory: (cat: EffectiveCategory, label: string) => void;
   onDeleteCategory: (cat: EffectiveCategory) => void;
+  onToggleHide: (cat: EffectiveCategory) => void;
   onAddSub: (parent: string, label: string) => void;
   onRenameSub: (sub: Subcategory, label: string) => void;
   onDeleteSub: (sub: Subcategory) => void;
+  onReplayTour: () => void;
   onClose: () => void;
 }) {
   const [label, setLabel] = useState("");
@@ -82,11 +88,17 @@ export default function CategorySheet({
 
         {/* 카테고리 목록 */}
         <div className="no-scrollbar mb-4 flex-1 space-y-3 overflow-y-auto">
-          {categories.map((c) => (
+          {categories.map((c) => {
+            const isHidden = hidden.includes(c.id);
+            return (
             <div
               key={c.id}
               className="rounded-2xl border-2 p-3"
-              style={{ borderColor: LINE, background: "#FFF6F0" }}
+              style={{
+                borderColor: LINE,
+                background: "#FFF6F0",
+                opacity: isHidden ? 0.5 : 1,
+              }}
             >
               <div className="flex items-center gap-2">
                 <span className="text-lg">{c.emoji}</span>
@@ -100,7 +112,7 @@ export default function CategorySheet({
                       className="ml-2 text-[10px] font-bold uppercase"
                       style={{ color: MUTED }}
                     >
-                      기본
+                      {isHidden ? "숨김" : "기본"}
                     </span>
                   </span>
                 ) : (
@@ -114,7 +126,15 @@ export default function CategorySheet({
                 <span className="text-xs font-bold" style={{ color: MUTED }}>
                   {catCounts[c.id] ?? 0}벌
                 </span>
-                {!c.builtin && (
+                {c.builtin ? (
+                  <button
+                    onClick={() => onToggleHide(c)}
+                    className="text-xs font-bold"
+                    style={{ color: isHidden ? TANGERINE : MUTED }}
+                  >
+                    {isHidden ? "복원" : "숨기기"}
+                  </button>
+                ) : (
                   <button
                     onClick={() => onDeleteCategory(c)}
                     className="text-xs font-bold"
@@ -156,7 +176,8 @@ export default function CategorySheet({
                 <SubAdder onAdd={(v) => onAddSub(c.id, v)} />
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* 새 카테고리 추가 */}
@@ -208,6 +229,15 @@ export default function CategorySheet({
             ))}
           </div>
         </form>
+
+        {/* 앱 사용법(온보딩) 다시 보기 */}
+        <button
+          onClick={onReplayTour}
+          className="font-kr mt-4 w-full shrink-0 rounded-2xl border-2 py-3 text-sm font-bold transition active:scale-[.98]"
+          style={{ borderColor: LINE, color: MUTED }}
+        >
+          📖 앱 사용법 다시 보기
+        </button>
       </div>
     </div>
   );

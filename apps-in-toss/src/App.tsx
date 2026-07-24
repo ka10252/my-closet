@@ -59,7 +59,16 @@ export default function App() {
 
   return (
     <>
-      <Closet />
+      <Closet
+        onReplayTour={() => {
+          try {
+            localStorage.removeItem(ONBOARD_KEY);
+          } catch {
+            // 무시
+          }
+          setOnboarded(false);
+        }}
+      />
       {!onboarded && <Onboarding onDone={() => setOnboarded(true)} />}
     </>
   );
