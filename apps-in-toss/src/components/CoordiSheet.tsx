@@ -2,6 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Clothing, EffectiveCategory } from "@/lib/categories";
+import {
+  fetchLookbooks,
+  addLookbook,
+  deleteLookbook,
+  type Lookbook,
+} from "@/lib/lookbook";
 
 const TANGERINE = "#FF6A3D";
 const INK = "#2A1206";
@@ -110,6 +116,51 @@ export default function CoordiSheet({
     setSel((s) => ({ ...s, [catId]: s[catId] === itemId ? null : itemId }));
   }
 
+  // ---- 룩북 (저장한 코디) ----
+  const [lookbooks, setLookbooks] = useState<Lookbook[]>([]);
+  const [lookbookOpen, setLookbookOpen] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
+
+  useEffect(() => {
+    fetchLookbooks()
+      .then(setLookbooks)
+      .catch((e) => console.error(e));
+  }, []);
+
+  async function saveCurrent() {
+    const ids = chosen.map((i) => i.id);
+    if (!ids.length) return;
+    const name = `코디 ${lookbooks.length + 1}`;
+    // 낙관적: 먼저 저장 피드백
+    setSavedFlash(true);
+    setTimeout(() => setSavedFlash(false), 1600);
+    try {
+      const lb = await addLookbook(name, ids);
+      setLookbooks((prev) => [lb, ...prev]);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  function loadLookbook(lb: Lookbook) {
+    const next: Record<string, string | null> = {};
+    for (const id of lb.item_ids) {
+      const it = items.find((i) => i.id === id);
+      if (it) next[it.category] = id;
+    }
+    setSel(next);
+    setLookbookOpen(false);
+  }
+
+  async function removeLookbook(id: string) {
+    setLookbooks((prev) => prev.filter((l) => l.id !== id));
+    try {
+      await deleteLookbook(id);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex justify-center bg-white">
       <div
@@ -149,6 +200,25 @@ export default function CoordiSheet({
           </button>
         </div>
       </header>
+
+      {/* 저장 / 룩북 */}
+      <div className="flex shrink-0 gap-2 px-6 pb-2">
+        <button
+          onClick={saveCurrent}
+          disabled={chosen.length === 0}
+          className="font-kr flex-1 rounded-full border-2 py-2 text-xs font-bold transition active:scale-95 disabled:opacity-40"
+          style={{ borderColor: INK, color: INK, background: "#fff" }}
+        >
+          {savedFlash ? "✓ 룩북에 저장됐어요" : "💾 이 코디 저장"}
+        </button>
+        <button
+          onClick={() => setLookbookOpen(true)}
+          className="font-kr flex-1 rounded-full border-2 py-2 text-xs font-bold transition active:scale-95"
+          style={{ borderColor: INK, color: INK, background: "#fff" }}
+        >
+          📚 룩북{lookbooks.length > 0 ? ` ${lookbooks.length}` : ""}
+        </button>
+      </div>
 
       {/* 코디 프리뷰 */}
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 px-6 py-2">
@@ -270,6 +340,93 @@ export default function CoordiSheet({
             >
               완료
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 룩북 목록 */}
+      {lookbookOpen && (
+        <div className="absolute inset-0 z-20 flex flex-col bg-white">
+          <header className="flex shrink-0 items-center justify-between px-6 pb-3 pt-5">
+            <h2
+              className="font-display text-[22px]"
+              style={{ color: TANGERINE, letterSpacing: ".5px" }}
+            >
+              내 룩북
+            </h2>
+            <button
+              onClick={() => setLookbookOpen(false)}
+              className="flex h-9 w-9 items-center justify-center rounded-full border-2"
+              style={{ borderColor: INK, color: INK }}
+            >
+              ✕
+            </button>
+          </header>
+          <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto px-6 pb-10">
+            {lookbooks.length === 0 ? (
+              <p
+                className="py-16 text-center text-sm font-bold"
+                style={{ color: MUTED }}
+              >
+                아직 저장한 코디가 없어요.
+                <br />
+                마음에 드는 코디에서 💾 저장을 눌러보세요.
+              </p>
+            ) : (
+              lookbooks.map((lb) => {
+                const lbItems = lb.item_ids
+                  .map((id) => items.find((i) => i.id === id))
+                  .filter((i): i is Clothing => !!i);
+                return (
+                  <div
+                    key={lb.id}
+                    className="rounded-2xl border-2 p-3"
+                    style={{ borderColor: LINE, background: "#FFF6F0" }}
+                  >
+                    <div className="mb-2 flex items-center justify-between">
+                      <span
+                        className="text-sm font-bold"
+                        style={{ color: INK }}
+                      >
+                        {lb.name}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => loadLookbook(lb)}
+                          className="rounded-full border-2 px-3 py-1 text-xs font-bold text-white"
+                          style={{ background: TANGERINE, borderColor: INK }}
+                        >
+                          입어보기
+                        </button>
+                        <button
+                          onClick={() => removeLookbook(lb.id)}
+                          className="text-xs font-bold"
+                          style={{ color: "#C63F1E" }}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {lbItems.map((it) => (
+                        <div
+                          key={it.id}
+                          className="flex h-14 w-14 items-center justify-center rounded-xl border bg-white"
+                          style={{ borderColor: LINE }}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={src(it)}
+                            alt=""
+                            className="max-h-[85%] max-w-[85%] object-contain"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       )}
