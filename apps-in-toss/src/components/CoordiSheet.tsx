@@ -112,17 +112,6 @@ export default function CoordiSheet({
     [cats, sel, items],
   );
 
-  // 아우터는 상의 뒤에 살짝 겹쳐 보이게 처리
-  const outer = useMemo(
-    () => chosen.find((i) => i.category === "outerwear") ?? null,
-    [chosen],
-  );
-  const hasTop = chosen.some((i) => i.category === "top");
-  const stack = useMemo(
-    () => chosen.filter((i) => i.category !== "outerwear"),
-    [chosen],
-  );
-
   function toggle(catId: string, itemId: string) {
     setSel((s) => ({ ...s, [catId]: s[catId] === itemId ? null : itemId }));
   }
@@ -239,79 +228,22 @@ export default function CoordiSheet({
             아래에서 상의·하의·신발을 골라보세요
           </p>
         ) : (
-          <>
-            {/* 아우터만 있고 상의가 없으면 단독 표시 */}
-            {outer && !hasTop && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={src(outer)}
-                alt={outer.name ?? ""}
-                className={outer.cutout_url ? "cutout" : ""}
-                style={{
-                  height: "27%",
-                  maxHeight: 200,
-                  width: "auto",
-                  maxWidth: "72%",
-                  objectFit: "contain",
-                }}
-              />
-            )}
-            {stack.map((i) =>
-              i.category === "top" && outer ? (
-                // 상의 + 아우터(뒤에 살짝 겹침)
-                <div
-                  key={i.id}
-                  className="relative flex items-center justify-center"
-                  style={{ height: "27%", maxHeight: 200 }}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={src(outer)}
-                    alt={outer.name ?? ""}
-                    className={outer.cutout_url ? "cutout" : ""}
-                    style={{
-                      position: "absolute",
-                      height: "100%",
-                      width: "auto",
-                      maxWidth: "80%",
-                      objectFit: "contain",
-                      transform: "translate(-24%, -3%) rotate(-7deg)",
-                      zIndex: 0,
-                    }}
-                  />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={src(i)}
-                    alt={i.name ?? ""}
-                    className={i.cutout_url ? "cutout" : ""}
-                    style={{
-                      position: "relative",
-                      height: "100%",
-                      width: "auto",
-                      maxWidth: "72%",
-                      objectFit: "contain",
-                      zIndex: 1,
-                    }}
-                  />
-                </div>
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={i.id}
-                  src={src(i)}
-                  alt={i.name ?? ""}
-                  className={i.cutout_url ? "cutout" : ""}
-                  style={{
-                    height: smallCat(i.category) ? "15%" : "27%",
-                    maxHeight: smallCat(i.category) ? 90 : 200,
-                    width: "auto",
-                    maxWidth: "72%",
-                    objectFit: "contain",
-                  }}
-                />
-              ),
-            )}
-          </>
+          chosen.map((i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={i.id}
+              src={src(i)}
+              alt={i.name ?? ""}
+              className={i.cutout_url ? "cutout" : ""}
+              style={{
+                height: smallCat(i.category) ? "15%" : "27%",
+                maxHeight: smallCat(i.category) ? 90 : 200,
+                width: "auto",
+                maxWidth: "72%",
+                objectFit: "contain",
+              }}
+            />
+          ))
         )}
       </div>
 
