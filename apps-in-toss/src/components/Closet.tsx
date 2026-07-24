@@ -91,7 +91,6 @@ export default function Closet({
   const [subFilter, setSubFilter] = useState<string>("all");
   const [seasonFilter, setSeasonFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [packing, setPacking] = useState(false);
   const [unpackedOnly, setUnpackedOnly] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<
@@ -115,7 +114,7 @@ export default function Closet({
   const [selected, setSelected] = useState<Clothing | null>(null);
   const [editTarget, setEditTarget] = useState<Clothing | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [seasonSheetOpen, setSeasonSheetOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   // 시트를 history에 쌓아 폰 '뒤로가기'로 이전 화면으로 닫히게 함
   const sheetStack = useRef<Array<() => void>>([]);
@@ -570,19 +569,16 @@ export default function Closet({
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              setSearchOpen((o) => !o);
-              if (searchOpen) setSearch("");
-            }}
-            aria-label="검색"
-            className="flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 text-sm transition active:scale-95"
+            onClick={() => setFilterOpen(true)}
+            aria-label="필터"
+            className="flex h-[30px] items-center gap-1 rounded-full border-2 px-3 text-xs font-bold transition active:scale-95"
             style={
-              searchOpen
-                ? { background: TANGERINE, borderColor: INK }
+              search.trim() || seasonFilter !== "all"
+                ? { background: TANGERINE, color: "#FFF6F0", borderColor: INK }
                 : { background: "transparent", borderColor: LINE, color: MUTED }
             }
           >
-            🔍
+            ⚟ 필터
           </button>
           <button
             onClick={() => {
@@ -597,20 +593,6 @@ export default function Closet({
           </button>
         </div>
       </header>
-
-      {/* 이름 검색 */}
-      {searchOpen && (
-        <div className="shrink-0 px-6 pb-3">
-          <input
-            autoFocus
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="옷 이름으로 검색"
-            className="w-full rounded-full border-2 px-4 py-2.5 text-sm outline-none"
-            style={{ borderColor: INK, color: INK }}
-          />
-        </div>
-      )}
 
       {/* 패킹 진행 바 */}
       {packing && items.length > 0 && (
@@ -662,11 +644,11 @@ export default function Closet({
         </div>
       )}
 
-      {/* 카테고리 필터 + 계절 드롭다운(우측) */}
-      <div className="flex shrink-0 items-center gap-2 px-6 pb-4">
+      {/* 카테고리 필터 */}
+      <div className="shrink-0 px-6 pb-4">
         <nav
           data-tour="shelves"
-          className="no-scrollbar flex min-w-0 flex-1 gap-2 overflow-x-auto"
+          className="no-scrollbar flex gap-2 overflow-x-auto"
         >
           <Chip active={filter === "all"} onClick={() => setFilter("all")}>
             전체 {items.length}
@@ -697,20 +679,6 @@ export default function Closet({
             ＋ 카테고리
           </button>
         </nav>
-        {/* 계절 필터 버튼 */}
-        <button
-          onClick={() => setSeasonSheetOpen(true)}
-          className="flex shrink-0 items-center gap-1 rounded-full border-2 px-3 py-2 text-xs font-bold transition active:scale-95"
-          style={
-            seasonFilter === "all"
-              ? { background: "transparent", color: MUTED, borderColor: LINE }
-              : { background: TANGERINE, color: "#FFF6F0", borderColor: INK }
-          }
-        >
-          {seasonFilter === "all"
-            ? "⚟ 필터"
-            : `${SEASONS.find((s) => s.id === seasonFilter)?.emoji} ${seasonFilter}`}
-        </button>
       </div>
 
       {/* 세부 카테고리 필터 (메인 카테고리 선택 시 하단에 표시) */}
@@ -1050,14 +1018,13 @@ export default function Closet({
         />
       )}
 
-      {seasonSheetOpen && (
-        <SeasonSheet
-          value={seasonFilter}
-          onChange={(v) => {
-            setSeasonFilter(v);
-            setSeasonSheetOpen(false);
-          }}
-          onClose={() => setSeasonSheetOpen(false)}
+      {filterOpen && (
+        <FilterSheet
+          season={seasonFilter}
+          onSeason={setSeasonFilter}
+          search={search}
+          onSearch={setSearch}
+          onClose={() => setFilterOpen(false)}
         />
       )}
 
@@ -1283,13 +1250,17 @@ function ProfileSheet({
   );
 }
 
-function SeasonSheet({
-  value,
-  onChange,
+function FilterSheet({
+  season,
+  onSeason,
+  search,
+  onSearch,
   onClose,
 }: {
-  value: string;
-  onChange: (v: string) => void;
+  season: string;
+  onSeason: (v: string) => void;
+  search: string;
+  onSearch: (v: string) => void;
   onClose: () => void;
 }) {
   const opts = [
@@ -1311,16 +1282,45 @@ function SeasonSheet({
           className="mx-auto mb-4 h-1.5 w-11 rounded-full"
           style={{ background: LINE }}
         />
-        <h2 className="mb-4 text-xl font-bold" style={{ color: INK }}>
-          계절로 보기
-        </h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-xl font-bold" style={{ color: INK }}>
+            검색 · 필터
+          </h2>
+          {(search.trim() || season !== "all") && (
+            <button
+              onClick={() => {
+                onSearch("");
+                onSeason("all");
+              }}
+              className="text-xs font-bold underline"
+              style={{ color: MUTED }}
+            >
+              초기화
+            </button>
+          )}
+        </div>
+
+        <input
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder="🔍 옷 이름으로 검색"
+          className="mb-5 w-full rounded-2xl border-2 px-4 py-3 text-sm outline-none"
+          style={{ borderColor: LINE, color: INK }}
+        />
+
+        <p
+          className="mb-2 text-[10.5px] font-bold uppercase tracking-wider"
+          style={{ color: MUTED }}
+        >
+          계절
+        </p>
         <div className="grid grid-cols-3 gap-2">
           {opts.map((o) => {
-            const active = value === o.id;
+            const active = season === o.id;
             return (
               <button
                 key={o.id}
-                onClick={() => onChange(o.id)}
+                onClick={() => onSeason(o.id)}
                 className="flex flex-col items-center gap-1 rounded-2xl border-2 py-4 text-sm font-bold transition active:scale-95"
                 style={
                   active
