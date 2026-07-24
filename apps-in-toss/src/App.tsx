@@ -6,18 +6,19 @@ import Login from "@/components/Login";
 import SetPassword from "@/components/SetPassword";
 import Onboarding, { ONBOARD_KEY } from "@/components/Onboarding";
 
-function isOnboarded() {
+// 이 기기에서 이미 온보딩을 봤는지 (계정 metadata 를 못 읽는 경우의 빠른 스킵)
+function localOnboarded() {
   try {
     return localStorage.getItem(ONBOARD_KEY) === "1";
   } catch {
-    return true; // localStorage 불가 시 온보딩 생략
+    return false;
   }
 }
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
-  const [onboarded, setOnboarded] = useState(isOnboarded);
+  const [forceTour, setForceTour] = useState(false); // '다시 보기'로 강제 표시
   const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
@@ -57,19 +58,28 @@ export default function App() {
 
   if (!session) return <Login />;
 
+  // 온보딩은 가입 후 첫 로그인 시에만 (계정 metadata 기준, 이 기기 로컬 기록도 스킵 근거)
+  const seen = session.user.user_metadata?.onboarded === true || localOnboarded();
+  const showTour = forceTour || !seen;
+
+  async function finishTour() {
+    setForceTour(false);
+    try {
+      localStorage.setItem(ONBOARD_KEY, "1");
+    } catch {
+      // 무시
+    }
+    try {
+      await createClient().auth.updateUser({ data: { onboarded: true } });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   return (
     <>
-      <Closet
-        onReplayTour={() => {
-          try {
-            localStorage.removeItem(ONBOARD_KEY);
-          } catch {
-            // 무시
-          }
-          setOnboarded(false);
-        }}
-      />
-      {!onboarded && <Onboarding onDone={() => setOnboarded(true)} />}
+      <Closet onReplayTour={() => setForceTour(true)} />
+      {showTour && <Onboarding onDone={finishTour} />}
     </>
   );
 }

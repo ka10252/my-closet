@@ -120,6 +120,8 @@ export default function CoordiSheet({
   const [lookbooks, setLookbooks] = useState<Lookbook[]>([]);
   const [lookbookOpen, setLookbookOpen] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
 
   useEffect(() => {
     fetchLookbooks()
@@ -127,11 +129,17 @@ export default function CoordiSheet({
       .catch((e) => console.error(e));
   }, []);
 
-  async function saveCurrent() {
+  function openSave() {
+    if (chosen.length === 0) return;
+    setSaveName(`코디 ${lookbooks.length + 1}`);
+    setSaveOpen(true);
+  }
+
+  async function doSave() {
     const ids = chosen.map((i) => i.id);
     if (!ids.length) return;
-    const name = `코디 ${lookbooks.length + 1}`;
-    // 낙관적: 먼저 저장 피드백
+    const name = saveName.trim() || `코디 ${lookbooks.length + 1}`;
+    setSaveOpen(false);
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1600);
     try {
@@ -204,7 +212,7 @@ export default function CoordiSheet({
       {/* 저장 / 룩북 */}
       <div className="flex shrink-0 gap-2 px-6 pb-2">
         <button
-          onClick={saveCurrent}
+          onClick={openSave}
           disabled={chosen.length === 0}
           className="font-kr flex-1 rounded-full border-2 py-2 text-xs font-bold transition active:scale-95 disabled:opacity-40"
           style={{ borderColor: INK, color: INK, background: "#fff" }}
@@ -341,6 +349,54 @@ export default function CoordiSheet({
               완료
             </button>
           </div>
+        </div>
+      )}
+
+      {/* 코디 저장 (이름 지정) */}
+      {saveOpen && (
+        <div
+          className="absolute inset-0 z-20 flex items-center justify-center px-8"
+          style={{ background: "rgba(20,15,40,.55)" }}
+          onClick={() => setSaveOpen(false)}
+        >
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={(e) => {
+              e.preventDefault();
+              doSave();
+            }}
+            className="w-full max-w-xs rounded-3xl border-2 bg-white p-5"
+            style={{ borderColor: INK, boxShadow: "0 18px 40px -12px rgba(0,0,0,.4)" }}
+          >
+            <p className="font-kr text-lg font-bold" style={{ color: INK }}>
+              이 코디 저장
+            </p>
+            <input
+              autoFocus
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              placeholder="코디 이름 (예: 데일리룩)"
+              className="mt-3 w-full rounded-2xl border-2 px-4 py-3 text-sm outline-none"
+              style={{ borderColor: LINE, color: INK }}
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSaveOpen(false)}
+                className="font-kr flex-1 rounded-2xl border-2 py-3 text-sm font-bold"
+                style={{ borderColor: LINE, color: MUTED }}
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                className="font-kr flex-1 rounded-2xl border-2 py-3 text-sm font-bold text-white"
+                style={{ background: TANGERINE, borderColor: INK }}
+              >
+                저장
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
