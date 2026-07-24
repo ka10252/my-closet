@@ -114,6 +114,8 @@ export default function Closet({
   const [coordiOpen, setCoordiOpen] = useState(false);
   const [selected, setSelected] = useState<Clothing | null>(null);
   const [editTarget, setEditTarget] = useState<Clothing | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [seasonSheetOpen, setSeasonSheetOpen] = useState(false);
 
   // 시트를 history에 쌓아 폰 '뒤로가기'로 이전 화면으로 닫히게 함
   const sheetStack = useRef<Array<() => void>>([]);
@@ -583,34 +585,15 @@ export default function Closet({
             🔍
           </button>
           <button
-            data-tour="coordi"
             onClick={() => {
-              openSheet(() => setCoordiOpen(false));
-              setCoordiOpen(true);
+              openSheet(() => setProfileOpen(false));
+              setProfileOpen(true);
             }}
-            className="rounded-full border-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition active:scale-95"
-            style={{ background: "transparent", color: MUTED, borderColor: LINE }}
+            aria-label="메뉴"
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 text-sm transition active:scale-95"
+            style={{ background: "transparent", borderColor: LINE, color: MUTED }}
           >
-            🎽 코디
-          </button>
-          <button
-            data-tour="packing"
-            onClick={() => setPacking((v) => !v)}
-            className="rounded-full border-2 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition active:scale-95"
-            style={
-              packing
-                ? { background: TANGERINE, color: "#FFF6F0", borderColor: INK }
-                : { background: "transparent", color: MUTED, borderColor: LINE }
-            }
-          >
-            🧳 패킹
-          </button>
-          <button
-            onClick={handleLogout}
-            className="rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider transition active:scale-95"
-            style={{ borderColor: LINE, color: MUTED }}
-          >
-            로그아웃
+            ☰
           </button>
         </div>
       </header>
@@ -714,7 +697,20 @@ export default function Closet({
             ＋ 카테고리
           </button>
         </nav>
-        <SeasonDropdown value={seasonFilter} onChange={setSeasonFilter} />
+        {/* 계절 필터 버튼 */}
+        <button
+          onClick={() => setSeasonSheetOpen(true)}
+          className="flex shrink-0 items-center gap-1 rounded-full border-2 px-3 py-2 text-xs font-bold transition active:scale-95"
+          style={
+            seasonFilter === "all"
+              ? { background: "transparent", color: MUTED, borderColor: LINE }
+              : { background: TANGERINE, color: "#FFF6F0", borderColor: INK }
+          }
+        >
+          {seasonFilter === "all"
+            ? "⚟ 필터"
+            : `${SEASONS.find((s) => s.id === seasonFilter)?.emoji} ${seasonFilter}`}
+        </button>
       </div>
 
       {/* 세부 카테고리 필터 (메인 카테고리 선택 시 하단에 표시) */}
@@ -916,13 +912,13 @@ export default function Closet({
       )}
       </div>
 
-      {/* 하단 페이드 */}
+      {/* 하단 페이드 (탭바 위) */}
       <div
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 mx-auto h-28 max-w-md"
-        style={{ background: "linear-gradient(to top, #fff 34%, transparent)" }}
+        className="pointer-events-none fixed inset-x-0 bottom-[58px] z-30 mx-auto h-20 max-w-md"
+        style={{ background: "linear-gradient(to top, #fff 42%, transparent)" }}
       />
 
-      {/* 옷 담기 버튼 */}
+      {/* 옷 추가 FAB (탭바 위) */}
       {!packing && (
         <button
           data-tour="add"
@@ -930,21 +926,47 @@ export default function Closet({
             openSheet(() => setAddOpen(false));
             setAddOpen(true);
           }}
-          className="font-display fixed bottom-7 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2.5 rounded-full py-2 pl-2 pr-6 text-[13.5px] uppercase tracking-wide text-white transition active:translate-y-0.5"
+          aria-label="옷 추가"
+          className="fixed bottom-[74px] right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full border-2 text-3xl leading-none text-white transition active:translate-y-0.5"
           style={{
             background: TANGERINE,
+            borderColor: INK,
             boxShadow: "0 12px 26px -6px rgba(255,106,61,.55)",
           }}
         >
-          <span
-            className="flex h-8 w-8 items-center justify-center rounded-full text-xl leading-none"
-            style={{ background: "rgba(255,255,255,.22)" }}
-          >
-            ＋
-          </span>
-          add a piece
+          ＋
         </button>
       )}
+
+      {/* 하단 탭바 */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-md border-t-2 bg-white"
+        style={{ borderColor: INK }}
+      >
+        <TabButton
+          emoji="🧺"
+          label="옷장"
+          active={!packing}
+          onClick={() => setPacking(false)}
+        />
+        <TabButton
+          emoji="🎽"
+          label="코디"
+          dataTour="coordi"
+          active={false}
+          onClick={() => {
+            openSheet(() => setCoordiOpen(false));
+            setCoordiOpen(true);
+          }}
+        />
+        <TabButton
+          emoji="🧳"
+          label="패킹"
+          dataTour="packing"
+          active={packing}
+          onClick={() => setPacking((v) => !v)}
+        />
+      </nav>
 
       {addOpen && (
         <AddSheet
@@ -974,7 +996,6 @@ export default function Closet({
           onAddSub={handleAddSub}
           onRenameSub={handleRenameSub}
           onDeleteSub={handleDeleteSub}
-          onReplayTour={handleReplayTour}
           onClose={closeTop}
         />
       )}
@@ -1014,6 +1035,29 @@ export default function Closet({
           items={items}
           categories={categories}
           onClose={closeTop}
+        />
+      )}
+
+      {profileOpen && (
+        <ProfileSheet
+          onClose={closeTop}
+          onReplayTour={handleReplayTour}
+          onLogout={handleLogout}
+          onPrivacy={() => {
+            closeTop();
+            showToast("개인정보처리방침은 준비 중이에요");
+          }}
+        />
+      )}
+
+      {seasonSheetOpen && (
+        <SeasonSheet
+          value={seasonFilter}
+          onChange={(v) => {
+            setSeasonFilter(v);
+            setSeasonSheetOpen(false);
+          }}
+          onClose={() => setSeasonSheetOpen(false)}
         />
       )}
 
@@ -1141,62 +1185,156 @@ function ConfirmModal({
   );
 }
 
-function SeasonDropdown({
+function TabButton({
+  emoji,
+  label,
+  active,
+  onClick,
+  dataTour,
+}: {
+  emoji: string;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  dataTour?: string;
+}) {
+  return (
+    <button
+      data-tour={dataTour}
+      onClick={onClick}
+      className="flex flex-1 flex-col items-center gap-0.5 py-2 pb-2.5 text-[10px] font-bold uppercase tracking-wide transition active:scale-95"
+      style={{ color: active ? TANGERINE : MUTED }}
+    >
+      <span
+        className="text-[19px] leading-none"
+        style={{ filter: active ? "none" : "grayscale(0.5) opacity(0.85)" }}
+      >
+        {emoji}
+      </span>
+      {label}
+    </button>
+  );
+}
+
+function MenuRow({
+  emoji,
+  label,
+  onClick,
+  danger,
+}: {
+  emoji: string;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-2xl border-2 px-4 py-3.5 text-left text-sm font-bold transition active:scale-[.98]"
+      style={{ borderColor: LINE, color: danger ? "#C63F1E" : INK }}
+    >
+      <span className="text-lg">{emoji}</span>
+      <span className="flex-1">{label}</span>
+      <span style={{ color: MUTED }}>›</span>
+    </button>
+  );
+}
+
+function ProfileSheet({
+  onClose,
+  onReplayTour,
+  onLogout,
+  onPrivacy,
+}: {
+  onClose: () => void;
+  onReplayTour: () => void;
+  onLogout: () => void;
+  onPrivacy: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ background: "rgba(20,15,40,.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-t-[28px] border-t-2 bg-white p-6 pb-9"
+        style={{ borderColor: INK }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="mx-auto mb-4 h-1.5 w-11 rounded-full"
+          style={{ background: LINE }}
+        />
+        <h2 className="mb-4 text-xl font-bold" style={{ color: INK }}>
+          메뉴
+        </h2>
+        <div className="space-y-2">
+          <MenuRow
+            emoji="📖"
+            label="앱 사용법 다시 보기"
+            onClick={onReplayTour}
+          />
+          <MenuRow emoji="🔒" label="개인정보처리방침" onClick={onPrivacy} />
+          <MenuRow emoji="🚪" label="로그아웃" onClick={onLogout} danger />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SeasonSheet({
   value,
   onChange,
+  onClose,
 }: {
   value: string;
   onChange: (v: string) => void;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const sel = SEASONS.find((s) => s.id === value);
+  const opts = [
+    { id: "all", emoji: "🗓", label: "전체" },
+    ...SEASONS.map((s) => ({ id: s.id, emoji: s.emoji, label: s.id })),
+  ];
   return (
-    <div className="relative shrink-0">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 rounded-full border-2 px-3 py-2 text-xs font-bold transition active:scale-95"
-        style={
-          value === "all"
-            ? { background: "transparent", color: MUTED, borderColor: LINE }
-            : { background: TANGERINE, color: "#FFF6F0", borderColor: INK }
-        }
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ background: "rgba(20,15,40,.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-t-[28px] border-t-2 bg-white p-6 pb-9"
+        style={{ borderColor: INK }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {value === "all" ? "🗓 계절" : `${sel?.emoji} ${value}`}
-        <span className="text-[9px]">▾</span>
-      </button>
-      {open && (
-        <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            className="absolute right-0 z-50 mt-1.5 w-32 overflow-hidden rounded-2xl border-2 bg-white p-1"
-            style={{ borderColor: INK, boxShadow: "0 12px 26px -8px rgba(0,0,0,.3)" }}
-          >
-            {[{ id: "all", emoji: "🗓" }, ...SEASONS].map((s) => {
-              const active = value === s.id;
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => {
-                    onChange(s.id);
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold"
-                  style={{
-                    background: active ? "#FFF6F0" : "transparent",
-                    color: active ? INK : MUTED,
-                  }}
-                >
-                  <span>{s.emoji}</span>
-                  {s.id === "all" ? "전체" : s.id}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
+        <div
+          className="mx-auto mb-4 h-1.5 w-11 rounded-full"
+          style={{ background: LINE }}
+        />
+        <h2 className="mb-4 text-xl font-bold" style={{ color: INK }}>
+          계절로 보기
+        </h2>
+        <div className="grid grid-cols-3 gap-2">
+          {opts.map((o) => {
+            const active = value === o.id;
+            return (
+              <button
+                key={o.id}
+                onClick={() => onChange(o.id)}
+                className="flex flex-col items-center gap-1 rounded-2xl border-2 py-4 text-sm font-bold transition active:scale-95"
+                style={
+                  active
+                    ? { background: TANGERINE, color: "#FFF6F0", borderColor: INK }
+                    : { background: "#fff", color: MUTED, borderColor: LINE }
+                }
+              >
+                <span className="text-2xl">{o.emoji}</span>
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

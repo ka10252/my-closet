@@ -23,7 +23,6 @@ export default function CategorySheet({
   onAddSub,
   onRenameSub,
   onDeleteSub,
-  onReplayTour,
   onClose,
 }: {
   categories: EffectiveCategory[];
@@ -38,7 +37,6 @@ export default function CategorySheet({
   onAddSub: (parent: string, label: string) => void;
   onRenameSub: (sub: Subcategory, label: string) => void;
   onDeleteSub: (sub: Subcategory) => void;
-  onReplayTour: () => void;
   onClose: () => void;
 }) {
   const [label, setLabel] = useState("");
@@ -229,15 +227,6 @@ export default function CategorySheet({
             ))}
           </div>
         </form>
-
-        {/* 앱 사용법(온보딩) 다시 보기 */}
-        <button
-          onClick={onReplayTour}
-          className="font-kr mt-4 w-full shrink-0 rounded-2xl border-2 py-3 text-sm font-bold transition active:scale-[.98]"
-          style={{ borderColor: LINE, color: MUTED }}
-        >
-          📖 앱 사용법 다시 보기
-        </button>
       </div>
     </div>
   );

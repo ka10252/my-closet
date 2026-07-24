@@ -193,13 +193,6 @@ export default function CoordiSheet({
             ⚙️
           </button>
           <button
-            onClick={() => setSel(randomPick())}
-            className="font-kr rounded-full border-2 px-4 py-1.5 text-xs font-bold text-white"
-            style={{ background: TANGERINE, borderColor: INK }}
-          >
-            🎲 랜덤
-          </button>
-          <button
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-full border-2"
             style={{ borderColor: INK, color: INK }}
@@ -254,11 +247,32 @@ export default function CoordiSheet({
         )}
       </div>
 
-      {/* 카테고리별 선택 */}
+      {/* 랜덤 추천 (하단 주요 버튼) */}
+      <div className="shrink-0 px-4 pb-2">
+        <button
+          onClick={() => setSel(randomPick())}
+          className="font-kr w-full rounded-2xl border-2 py-3.5 text-sm font-bold text-white transition active:scale-[.98]"
+          style={{
+            background: TANGERINE,
+            borderColor: INK,
+            boxShadow: "0 10px 22px -8px rgba(255,106,61,.6)",
+          }}
+        >
+          🎲 랜덤 코디 추천
+        </button>
+      </div>
+
+      {/* 카테고리별 선택 (직접 조합) */}
       <div
-        className="no-scrollbar shrink-0 space-y-3 overflow-y-auto border-t-2 bg-white px-4 pb-8 pt-4"
-        style={{ borderColor: INK, maxHeight: "44dvh" }}
+        className="no-scrollbar shrink-0 space-y-3 overflow-y-auto border-t-2 bg-white px-4 pb-8 pt-3"
+        style={{ borderColor: INK, maxHeight: "42dvh" }}
       >
+        <p
+          className="text-[11px] font-bold uppercase tracking-wider"
+          style={{ color: MUTED }}
+        >
+          아래에서 직접 골라 조합할 수도 있어요
+        </p>
         {cats.map((c) => (
           <div key={c.id}>
             <p
