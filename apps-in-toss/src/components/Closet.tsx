@@ -1069,7 +1069,7 @@ export default function Closet({
           onLogout={handleLogout}
           onPrivacy={() => {
             closeTop();
-            showToast("개인정보처리방침은 준비 중이에요");
+            window.open(`${window.location.origin}/privacy.html`, "_blank");
           }}
         />
       )}
