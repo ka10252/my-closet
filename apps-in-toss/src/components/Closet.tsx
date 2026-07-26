@@ -123,6 +123,7 @@ export default function Closet({
   const [selected, setSelected] = useState<Clothing | null>(null);
   const [editTarget, setEditTarget] = useState<Clothing | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [policyOpen, setPolicyOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
 
   // 시트를 history에 쌓아 폰 '뒤로가기'로 이전 화면으로 닫히게 함
@@ -1067,10 +1068,19 @@ export default function Closet({
           onClose={closeTop}
           onReplayTour={handleReplayTour}
           onLogout={handleLogout}
-          onPrivacy={() => {
-            closeTop();
-            window.open(`${window.location.origin}/privacy.html`, "_blank");
+          onOpenPolicy={() => {
+            openSheet(() => setPolicyOpen(false));
+            setPolicyOpen(true);
           }}
+        />
+      )}
+
+      {policyOpen && (
+        <PolicySheet
+          onClose={closeTop}
+          onOpen={(path) =>
+            window.open(`${window.location.origin}${path}`, "_blank")
+          }
         />
       )}
 
@@ -1267,12 +1277,12 @@ function ProfileSheet({
   onClose,
   onReplayTour,
   onLogout,
-  onPrivacy,
+  onOpenPolicy,
 }: {
   onClose: () => void;
   onReplayTour: () => void;
   onLogout: () => void;
-  onPrivacy: () => void;
+  onOpenPolicy: () => void;
 }) {
   return (
     <div
@@ -1298,8 +1308,57 @@ function ProfileSheet({
             label="앱 사용법 다시 보기"
             onClick={onReplayTour}
           />
-          <MenuRow emoji="🔒" label="개인정보처리방침" onClick={onPrivacy} />
           <MenuRow emoji="🚪" label="로그아웃" onClick={onLogout} danger />
+        </div>
+        {/* 약관·정책은 눈에 덜 띄게 하단 작은 링크로 */}
+        <button
+          onClick={onOpenPolicy}
+          className="mt-5 w-full text-center text-[11px] font-semibold"
+          style={{ color: "#C9B4A6" }}
+        >
+          약관 및 정책
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PolicySheet({
+  onClose,
+  onOpen,
+}: {
+  onClose: () => void;
+  onOpen: (path: string) => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[55] flex items-end justify-center"
+      style={{ background: "rgba(20,15,40,.5)" }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-t-[28px] border-t-2 bg-white p-6 pb-9"
+        style={{ borderColor: INK }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="mx-auto mb-4 h-1.5 w-11 rounded-full"
+          style={{ background: LINE }}
+        />
+        <h2 className="mb-4 text-xl font-bold" style={{ color: INK }}>
+          약관 및 정책
+        </h2>
+        <div className="space-y-2">
+          <MenuRow
+            emoji="📄"
+            label="이용약관"
+            onClick={() => onOpen("/terms.html")}
+          />
+          <MenuRow
+            emoji="🔒"
+            label="개인정보처리방침"
+            onClick={() => onOpen("/privacy.html")}
+          />
         </div>
       </div>
     </div>
