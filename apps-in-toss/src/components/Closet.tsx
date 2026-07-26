@@ -38,6 +38,7 @@ const MUTED = "#B0846A";
 const LINE = "#F3C9B4";
 
 const HIDDEN_CATS_KEY = "mycloset_hidden_cats";
+const ALL_VIEW_KEY = "mycloset_all_view";
 
 type Filter = "all" | "favorite" | string;
 
@@ -93,6 +94,14 @@ export default function Closet({
   const [search, setSearch] = useState("");
   const [packing, setPacking] = useState(false);
   const [unpackedOnly, setUnpackedOnly] = useState(false);
+  // 전체 뷰 모드: 스티커 둥둥 / 카테고리별 줄 정리
+  const [allView, setAllView] = useState<"scatter" | "rows">(() => {
+    try {
+      return localStorage.getItem(ALL_VIEW_KEY) === "rows" ? "rows" : "scatter";
+    } catch {
+      return "scatter";
+    }
+  });
   const [confirmDialog, setConfirmDialog] = useState<
     (ConfirmOpts & { resolve: (v: boolean) => void }) | null
   >(null);
@@ -389,6 +398,15 @@ export default function Closet({
     onReplayTour();
   }
 
+  function setAllViewPersist(v: "scatter" | "rows") {
+    setAllView(v);
+    try {
+      localStorage.setItem(ALL_VIEW_KEY, v);
+    } catch {
+      // 무시
+    }
+  }
+
   async function handleDeleteCategory(cat: EffectiveCategory) {
     const inCat = items.filter((i) => i.category === cat.id);
     const ok = await askConfirm({
@@ -681,6 +699,36 @@ export default function Closet({
         </nav>
       </div>
 
+      {/* 전체 뷰 모드 토글 (둥둥 / 줄 정리) */}
+      {filter === "all" && !packing && !loading && !loadError && items.length > 0 && (
+        <div className="flex shrink-0 justify-end px-6 pb-2">
+          <div
+            className="flex rounded-full border-2 p-0.5"
+            style={{ borderColor: LINE }}
+          >
+            {(
+              [
+                ["scatter", "✨ 둥둥"],
+                ["rows", "▤ 줄정리"],
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={v}
+                onClick={() => setAllViewPersist(v)}
+                className="rounded-full px-3 py-1 text-[11px] font-bold transition"
+                style={
+                  allView === v
+                    ? { background: TANGERINE, color: "#FFF6F0" }
+                    : { background: "transparent", color: MUTED }
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 세부 카테고리 필터 (메인 카테고리 선택 시 하단에 표시) */}
       {filter !== "all" && filter !== "favorite" && activeSubcats.length > 0 && (
         <nav className="no-scrollbar flex shrink-0 items-center gap-2 px-6 pb-3">
@@ -764,11 +812,19 @@ export default function Closet({
           </p>
         </div>
       ) : filter === "all" && !packing ? (
-        <ScatterBoard
-          items={visible}
-          onOpen={openItem}
-          onMove={handleMovePosition}
-        />
+        allView === "rows" ? (
+          <CategoryRows
+            items={visible}
+            categories={allCategories}
+            onOpen={openItem}
+          />
+        ) : (
+          <ScatterBoard
+            items={visible}
+            onOpen={openItem}
+            onMove={handleMovePosition}
+          />
+        )
       ) : (
         <div className="px-6 pb-32">
           {rows.map((row, ri) => (
@@ -1453,6 +1509,87 @@ function ScatterBoard({
                   dragging ? "scale-105" : ""
                 } ${item.cutout_url ? "cutout" : ""}`}
               />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// 카테고리별 한 줄씩, 좌우 스와이프로 목록 넘겨보기
+function CategoryRows({
+  items,
+  categories,
+  onOpen,
+}: {
+  items: Clothing[];
+  categories: EffectiveCategory[];
+  onOpen: (item: Clothing) => void;
+}) {
+  const groups = new Map<string, Clothing[]>();
+  for (const it of items) {
+    const arr = groups.get(it.category) ?? [];
+    arr.push(it);
+    groups.set(it.category, arr);
+  }
+  // 보이는 카테고리 순서 우선, 그 외(숨김/미분류)는 뒤에
+  const orderedIds = [
+    ...categories.map((c) => c.id).filter((id) => groups.has(id)),
+    ...[...groups.keys()].filter(
+      (id) => !categories.some((c) => c.id === id),
+    ),
+  ];
+
+  if (orderedIds.length === 0) return null;
+
+  return (
+    <div className="pb-28 pt-1">
+      {orderedIds.map((id) => {
+        const cat = findCategory(id, categories);
+        const list = groups.get(id)!;
+        return (
+          <div key={id} className="mb-5">
+            <div className="mb-1.5 flex items-center gap-1.5 px-6">
+              <span className="text-base">{cat.emoji}</span>
+              <span className="text-sm font-bold" style={{ color: INK }}>
+                {cat.label}
+              </span>
+              <span
+                className="text-[11px] font-bold"
+                style={{ color: MUTED }}
+              >
+                {list.length}
+              </span>
+            </div>
+            <div className="no-scrollbar flex gap-3 overflow-x-auto px-6 pb-1">
+              {list.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onOpen(item)}
+                  className="flex w-[104px] shrink-0 flex-col items-center gap-1.5"
+                >
+                  <div
+                    className="flex h-[128px] w-full items-center justify-center rounded-2xl border-2"
+                    style={{ borderColor: LINE, background: "#FFF6F0" }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={displaySrc(item)}
+                      alt={item.name ?? cat.label}
+                      className={`max-h-[86%] max-w-[86%] object-contain ${
+                        item.cutout_url ? "cutout" : ""
+                      }`}
+                    />
+                  </div>
+                  <span
+                    className="max-w-full truncate text-[10px] font-semibold uppercase tracking-wide"
+                    style={{ color: INK }}
+                  >
+                    {item.name ?? cat.label}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
         );
