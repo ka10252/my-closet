@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>마이클로젯 앱 아이콘 다운로드</title>
+    <style>
+      body { margin: 0; background: #F6ECE4; color: #2A1206;
+        font-family: system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif;
+        display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 48px 20px 80px; text-align: center; }
+      h1 { font-size: 22px; margin: 0; }
+      p { color: #9c7c68; font-size: 14px; margin: 0; }
+      canvas { width: 240px; height: 240px; border-radius: 52px; box-shadow: 0 16px 34px -14px rgba(60,25,10,.5); }
+      .dl { background: #FF6A3D; color: #fff; border: 3px solid #2A1206; border-radius: 16px;
+        padding: 14px 26px; font-weight: 800; font-size: 16px; cursor: pointer; font-family: inherit; }
+      .dl:active { transform: translateY(1px); }
+      .hint { font-size: 12.5px; color: #9c7c68; max-width: 30ch; }
+    </style>
+  </head>
+  <body>
+    <h1>마이클로젯 앱 아이콘</h1>
+    <p>아래 버튼으로 1024×1024 PNG를 받으세요</p>
+    <canvas id="c" width="1024" height="1024"></canvas>
+    <button class="dl" onclick="dl()">아이콘 PNG 다운로드</button>
+    <p class="hint">버튼이 안 되면 아이콘을 길게 눌러(또는 우클릭) "이미지 저장"을 하세요.</p>
+    <script>
+      const WHITE = "#FFF6F0";
+      const ctx = document.getElementById("c").getContext("2d");
+      // 배경
+      ctx.fillStyle = "#FF6A3D";
+      ctx.fillRect(0, 0, 1024, 1024);
+      ctx.fillStyle = "rgba(255,255,255,.14)";
+      for (let y = 70; y < 1024; y += 96)
+        for (let x = 70; x < 1024; x += 96) { ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill(); }
+      // 옷걸이
+      ctx.strokeStyle = WHITE; ctx.lineWidth = 46; ctx.lineCap = "round"; ctx.lineJoin = "round";
+      const cx = 512, apexY = 470, halfW = 340, barY = 660, stemTop = 372;
+      ctx.beginPath();
+      ctx.moveTo(cx, apexY);
+      ctx.lineTo(cx, stemTop);
+      ctx.bezierCurveTo(cx, stemTop - 96, cx - 128, stemTop - 96, cx - 128, stemTop + 6);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - halfW, barY);
+      ctx.quadraticCurveTo(cx - halfW * 0.46, apexY + 34, cx, apexY);
+      ctx.quadraticCurveTo(cx + halfW * 0.46, apexY + 34, cx + halfW, barY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - halfW, barY); ctx.lineTo(cx + halfW, barY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - halfW, barY); ctx.lineTo(cx - halfW, barY - 30);
+      ctx.moveTo(cx + halfW, barY); ctx.lineTo(cx + halfW, barY - 30);
+      ctx.stroke();
+      function dl() {
+        const a = document.createElement("a");
+        a.href = document.getElementById("c").toDataURL("image/png");
+        a.download = "mycloset-icon.png";
+        document.body.appendChild(a); a.click(); a.remove();
+      }
+    </script>
+  </body>
+</html>
