@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>마이클로젯 스크린샷 다운로드</title>
+    <style>
+      body { margin: 0; background: #F6ECE4; color: #2A1206;
+        font-family: system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; line-height: 1.5; }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 44px 20px 80px; text-align: center; }
+      h1 { font-size: 24px; margin: 0 0 6px; }
+      p.sub { color: #9c7c68; font-size: 14px; margin: 0 0 8px; }
+      .all { display: inline-block; margin: 14px 0 26px; background: #FF6A3D; color: #fff;
+        border: 3px solid #2A1206; border-radius: 16px; padding: 12px 24px; font-weight: 800; font-size: 15px;
+        text-decoration: none; }
+      .grid { display: flex; gap: 22px; justify-content: center; flex-wrap: wrap; }
+      .item { width: 230px; }
+      .item img { width: 100%; border-radius: 22px; box-shadow: 0 16px 32px -16px rgba(60,25,10,.45);
+        border: 1px solid #EBD6C8; display: block; }
+      .item a.dl { display: inline-block; margin-top: 12px; background: #fff; color: #2A1206;
+        border: 2px solid #2A1206; border-radius: 12px; padding: 9px 16px; font-weight: 800; font-size: 13px;
+        text-decoration: none; }
+      .item a.dl:active { transform: translateY(1px); }
+      .hint { color: #9c7c68; font-size: 12.5px; margin-top: 30px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>마이클로젯 소개 스크린샷</h1>
+      <p class="sub">1200×2160 · 4장 — 콘솔에 업로드하세요</p>
+      <div class="grid">
+        <div class="item"><img src="/shots/1.png" alt="홈" /><br /><a class="dl" href="/shots/1.png" download="mycloset-1-home.png">① 홈 다운로드</a></div>
+        <div class="item"><img src="/shots/2.png" alt="누끼" /><br /><a class="dl" href="/shots/2.png" download="mycloset-2-nukki.png">② 누끼 다운로드</a></div>
+        <div class="item"><img src="/shots/3.png" alt="코디" /><br /><a class="dl" href="/shots/3.png" download="mycloset-3-coordi.png">③ 코디 다운로드</a></div>
+        <div class="item"><img src="/shots/4.png" alt="패킹" /><br /><a class="dl" href="/shots/4.png" download="mycloset-4-packing.png">④ 패킹 다운로드</a></div>
+      </div>
+      <p class="hint">버튼이 안 되면 이미지를 길게 눌러(또는 우클릭) "이미지 저장"을 하세요.</p>
+    </div>
+  </body>
+</html>
